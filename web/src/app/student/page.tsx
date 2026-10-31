@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { signOut } from "@/app/login/actions";
 import { createClient } from "@/lib/supabase/server";
 
+import StudentHomeClient from "./StudentHomeClient";
+
 export default async function StudentHome() {
   const supabase = await createClient();
   const {
@@ -13,7 +15,7 @@ export default async function StudentHome() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, approval_status, name, student_number")
+    .select("role, approval_status, name, student_number, rejected_reason")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -21,8 +23,30 @@ export default async function StudentHome() {
     redirect("/login?error=forbidden");
   }
 
-  const needsVerify = profile.approval_status === "PENDING";
+  // 승인 상태별 분기
+  if (profile.approval_status === "APPROVED") {
+    return (
+      <div className="flex-1">
+        <div className="flex justify-end px-6 pt-4">
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="text-xs text-zinc-500 underline-offset-4 hover:underline"
+            >
+              로그아웃
+            </button>
+          </form>
+        </div>
+        <StudentHomeClient
+          userId={user.id}
+          name={profile.name}
+          studentNumber={profile.student_number}
+        />
+      </div>
+    );
+  }
 
+  // PENDING / REJECTED
   return (
     <div className="mx-auto flex max-w-xl flex-col items-center gap-6 px-6 py-16 text-center">
       <header>
@@ -30,41 +54,35 @@ export default async function StudentHome() {
           안녕하세요, {profile.name ?? "학생"}님
         </h1>
         <p className="mt-2 text-sm text-zinc-500">
-          학번 {profile.student_number ?? "-"} · 상태{" "}
-          <span
-            className={
-              profile.approval_status === "APPROVED"
-                ? "text-emerald-700"
-                : profile.approval_status === "REJECTED"
-                  ? "text-red-700"
-                  : "text-amber-700"
-            }
-          >
-            {profile.approval_status}
-          </span>
+          학번 {profile.student_number ?? "-"}
         </p>
       </header>
 
-      <section className="w-full rounded-xl border border-zinc-200 bg-white p-6 shadow-sm space-y-3 text-left">
-        <h2 className="text-sm font-semibold text-zinc-800">학생 기능은 모바일 앱에서</h2>
-        <p className="text-sm text-zinc-600">
-          빈 강의실 조회, 예약, 체크인, 신고 등 모든 학생 기능은 룸픽 모바일 앱에서
-          제공됩니다. Expo Go 또는 설치 빌드로 접속해 주세요.
-        </p>
-        <ul className="list-disc space-y-1 pl-5 text-xs text-zinc-500">
-          <li>GPS 체크인은 모바일 전용입니다</li>
-          <li>푸시 알림(승인·종료 임박·맞춤 빈자리)도 모바일에서 수신</li>
-        </ul>
-      </section>
-
-      {needsVerify && (
-        <Link
-          href="/student/verify"
-          className="w-full rounded-lg bg-zinc-900 py-3 text-sm font-medium text-white hover:bg-zinc-800"
-        >
-          학생증 제출하러 가기 →
-        </Link>
+      {profile.approval_status === "PENDING" ? (
+        <section className="w-full rounded-xl border border-amber-200 bg-amber-50 p-6 shadow-sm text-left space-y-2">
+          <h2 className="text-sm font-semibold text-amber-900">
+            학생증 승인 대기 중
+          </h2>
+          <p className="text-sm text-amber-800">
+            운영진이 학번과 학생증을 대조하고 있어요. 승인되면 전체 기능이 열립니다.
+          </p>
+        </section>
+      ) : (
+        <section className="w-full rounded-xl border border-red-200 bg-red-50 p-6 shadow-sm text-left space-y-2">
+          <h2 className="text-sm font-semibold text-red-900">학생증이 거절되었어요</h2>
+          {profile.rejected_reason && (
+            <p className="text-sm text-red-800">사유: {profile.rejected_reason}</p>
+          )}
+          <p className="text-xs text-red-700">아래 버튼으로 다시 제출해 주세요.</p>
+        </section>
       )}
+
+      <Link
+        href="/student/verify"
+        className="w-full rounded-lg bg-zinc-900 py-3 text-center text-sm font-medium text-white hover:bg-zinc-800"
+      >
+        학생증 {profile.approval_status === "REJECTED" ? "재제출" : "제출"}하러 가기 →
+      </Link>
 
       <form action={signOut}>
         <button
