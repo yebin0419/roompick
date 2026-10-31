@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { signOut } from "@/app/login/actions";
 import { createClient } from "@/lib/supabase/server";
 
 import StudentHomeClient from "./StudentHomeClient";
@@ -18,51 +17,30 @@ export default async function StudentHome() {
     .select("role, approval_status, name, student_number, rejected_reason")
     .eq("id", user.id)
     .maybeSingle();
+  if (!profile || profile.role !== "STUDENT") redirect("/login?error=forbidden");
 
-  if (!profile || profile.role !== "STUDENT") {
-    redirect("/login?error=forbidden");
-  }
-
-  // 승인 상태별 분기
   if (profile.approval_status === "APPROVED") {
     return (
-      <div className="flex-1">
-        <div className="flex justify-end px-6 pt-4">
-          <form action={signOut}>
-            <button
-              type="submit"
-              className="text-xs text-zinc-500 underline-offset-4 hover:underline"
-            >
-              로그아웃
-            </button>
-          </form>
-        </div>
-        <StudentHomeClient
-          userId={user.id}
-          name={profile.name}
-          studentNumber={profile.student_number}
-        />
-      </div>
+      <StudentHomeClient
+        userId={user.id}
+        name={profile.name}
+        studentNumber={profile.student_number}
+      />
     );
   }
 
-  // PENDING / REJECTED
   return (
     <div className="mx-auto flex max-w-xl flex-col items-center gap-6 px-6 py-16 text-center">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">
           안녕하세요, {profile.name ?? "학생"}님
         </h1>
-        <p className="mt-2 text-sm text-zinc-500">
-          학번 {profile.student_number ?? "-"}
-        </p>
+        <p className="mt-2 text-sm text-zinc-500">학번 {profile.student_number ?? "-"}</p>
       </header>
 
       {profile.approval_status === "PENDING" ? (
         <section className="w-full rounded-xl border border-amber-200 bg-amber-50 p-6 shadow-sm text-left space-y-2">
-          <h2 className="text-sm font-semibold text-amber-900">
-            학생증 승인 대기 중
-          </h2>
+          <h2 className="text-sm font-semibold text-amber-900">학생증 승인 대기 중</h2>
           <p className="text-sm text-amber-800">
             운영진이 학번과 학생증을 대조하고 있어요. 승인되면 전체 기능이 열립니다.
           </p>
@@ -83,15 +61,6 @@ export default async function StudentHome() {
       >
         학생증 {profile.approval_status === "REJECTED" ? "재제출" : "제출"}하러 가기 →
       </Link>
-
-      <form action={signOut}>
-        <button
-          type="submit"
-          className="rounded-lg border border-zinc-300 bg-white px-6 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
-        >
-          로그아웃
-        </button>
-      </form>
     </div>
   );
 }
