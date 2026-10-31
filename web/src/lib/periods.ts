@@ -1,86 +1,77 @@
-import type { DayOfWeek } from "@/lib/supabase/types";
+export const OPERATING_START_HOUR = 9;
+export const OPERATING_END_HOUR = 18;
 
-export const DAY_OPTIONS: Array<{ key: DayOfWeek; label: string }> = [
-  { key: "MON", label: "월" },
-  { key: "TUE", label: "화" },
-  { key: "WED", label: "수" },
-  { key: "THU", label: "목" },
-  { key: "FRI", label: "금" },
+export const PERIODS: { period: number; start: string; end: string }[] = [
+  { period: 1, start: "09:00", end: "10:00" },
+  { period: 2, start: "10:00", end: "11:00" },
+  { period: 3, start: "11:00", end: "12:00" },
+  { period: 4, start: "12:00", end: "13:00" },
+  { period: 5, start: "13:00", end: "14:00" },
+  { period: 6, start: "14:00", end: "15:00" },
+  { period: 7, start: "15:00", end: "16:00" },
+  { period: 8, start: "16:00", end: "17:00" },
+  { period: 9, start: "17:00", end: "18:00" },
 ];
 
-export const PERIOD_CODES = [
-  "01",
-  "02",
-  "03",
-  "04",
-  "05",
-  "06",
-  "07",
-  "08",
-  "09",
-];
-
-const PERIOD_START_HOUR: Record<string, number> = {
-  "01": 9,
-  "02": 10,
-  "03": 11,
-  "04": 12,
-  "05": 13,
-  "06": 14,
-  "07": 15,
-  "08": 16,
-  "09": 17,
+export const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
+export const WEEKDAY_INDEX: Record<string, number> = {
+  일: 0, 월: 1, 화: 2, 수: 3, 목: 4, 금: 5, 토: 6,
 };
 
-const JS_DAY_TO_ENUM: Record<number, DayOfWeek> = {
-  1: "MON",
-  2: "TUE",
-  3: "WED",
-  4: "THU",
-  5: "FRI",
-  6: "SAT",
-  0: "SUN",
-};
+export interface Slot { start: string; end: string }
 
-const DAY_TO_JS: Record<DayOfWeek, number> = {
-  SUN: 0,
-  MON: 1,
-  TUE: 2,
-  WED: 3,
-  THU: 4,
-  FRI: 5,
-  SAT: 6,
-};
-
-export function currentDayAndPeriod(): { day: DayOfWeek; period: string } {
-  const now = new Date();
-  const jsDay = now.getDay();
-  const dayEnum = JS_DAY_TO_ENUM[jsDay] ?? "MON";
-  const day = dayEnum === "SAT" || dayEnum === "SUN" ? "MON" : dayEnum;
-  const hour = now.getHours();
-  const match = Object.entries(PERIOD_START_HOUR).find(([, h]) => h === hour);
-  return { day, period: match?.[0] ?? "01" };
+export function periodToTime(period: number): { start: string; end: string } | null {
+  return PERIODS.find((p) => p.period === period) ?? null;
 }
 
-export function nextDateFor(day: DayOfWeek, from: Date = new Date()): string {
-  const target = DAY_TO_JS[day];
-  const current = from.getDay();
-  const diff = (target - current + 7) % 7;
-  const d = new Date(from);
-  d.setDate(d.getDate() + diff);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+export function slotsFromPeriods(periods: number[]): Slot[] {
+  if (periods.length === 0) return [];
+  const sorted = [...periods].sort((a, b) => a - b);
+  const slots: Slot[] = [];
+  let s = sorted[0];
+  let e = sorted[0];
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i] === e + 1) e = sorted[i];
+    else {
+      slots.push({ start: periodToTime(s)!.start, end: periodToTime(e)!.end });
+      s = sorted[i];
+      e = sorted[i];
+    }
+  }
+  slots.push({ start: periodToTime(s)!.start, end: periodToTime(e)!.end });
+  return slots;
 }
 
-export function periodLabel(code: string): string {
-  const hour = PERIOD_START_HOUR[code];
-  if (hour === undefined) return code;
-  const end = String(hour + 1).padStart(2, "0");
-  return `${code}교시 (${String(hour).padStart(2, "0")}:00~${end}:00)`;
-}
-
-export function periodRangeLabel(start: string, end: string): string {
-  return start === end ? start : `${start}-${end}`;
+export function freeSlotsForDay(
+  busy: Slot[],
+  dayStart = `${String(OPERATING_START_HOUR).padStart(2, "0")}:00`,
+  dayEnd = `${String(OPERATING_END_HOUR).padStart(2, "0")}:00`,
+): Slot[] {
+  const toMin = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
+  };
+  const toTime = (min: number) => {
+    const h = Math.floor(min / 60), m = min % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  };
+  const sorted = busy
+    .map((s) => ({ s: toMin(s.start), e: toMin(s.end) }))
+    .sort((a, b) => a.s - b.s);
+  const merged: { s: number; e: number }[] = [];
+  for (const b of sorted) {
+    if (merged.length && b.s <= merged[merged.length - 1].e) {
+      merged[merged.length - 1].e = Math.max(merged[merged.length - 1].e, b.e);
+    } else merged.push({ ...b });
+  }
+  const free: Slot[] = [];
+  let cur = toMin(dayStart);
+  const end = toMin(dayEnd);
+  for (const b of merged) {
+    if (b.s > cur) free.push({ start: toTime(cur), end: toTime(Math.min(b.s, end)) });
+    cur = Math.max(cur, b.e);
+    if (cur >= end) break;
+  }
+  if (cur < end) free.push({ start: toTime(cur), end: toTime(end) });
+  return free;
 }

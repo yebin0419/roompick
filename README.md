@@ -1,156 +1,160 @@
 # 룸픽 (RoomPick)
 
-PRD는 `PRD.md`, QA 체크리스트는 `E2E.md` 참조.
+경영대 빈 강의실을 실시간으로 Pick하는 통합 웹 서비스. Next.js(App Router) + Supabase + Vercel.
 
-## 로컬 실행 흐름
+- 상세 기획은 [`PRD.md`](./PRD.md) 참고
+- 학생 영역: `/student/*` · 관리자 영역: `/admin/*`
 
-### 1. Supabase 세팅
-Supabase 클라우드 프로젝트 생성 후 SQL Editor 에서 **순서대로** 실행:
-1. `supabase/migrations/0001_init.sql` — 스키마 + RLS
-2. `supabase/migrations/0002_storage.sql` — 학생증 Storage 버킷·정책
-3. `supabase/migrations/0003_profile_trigger.sql` — 회원가입 시 profiles row 자동 생성 트리거
-4. `supabase/migrations/0004_reservations.sql` — 예약 테이블 + 분기 트리거 + RLS
-5. `supabase/migrations/0005_check_in.sql` — 체크인 컬럼·버킷·`check_in` RPC·`mark_no_shows` 유틸
-6. `supabase/migrations/0006_reports.sql` — 신고 테이블·버킷·RLS
-7. `supabase/migrations/0007_report_views.sql` — `room_weekly_utilization` 뷰 (유휴율 리포트용)
-8. `supabase/migrations/0008_policy.sql` — 자율 정책 테이블·함수. 기존 `check_in` RPC / 예약 트리거를 정책 함수 기반으로 교체
-9. `supabase/migrations/0009_notifications.sql` — `push_tokens`·`notifications` 테이블, Expo Push 트리거(`pg_net`), 종료 10분 전 리마인더 함수
-10. `supabase/migrations/0010_cron.sql` — `pg_cron` 스케줄: 노쇼 15분, 종료 임박 1분. `mark_no_shows()` 에 노쇼 알림 전송 추가
-11. `supabase/migrations/0011_monthly_views.sql` — 월간 추이 뷰 (예약·신고 월별 집계)
-12. `supabase/migrations/0012_operations_reports.sql` — 운영 리포트 아카이브 테이블 + 자동 생성 RPC(`generate_operations_report`)
-13. `supabase/migrations/0013_preferences.sql` — 맞춤 빈자리 알림 (student_preferences + CANCELLED 매칭 트리거)
-14. `supabase/migrations/0014_staff_notifications.sql` — 운영진 인앱 알림(학생증 제출/예약 PENDING/신고 OPEN 트리거)
-15. `supabase/seed.sql` — 강의실/개설강좌 시딩 (`scripts/seed.py` 로 재생성)
+---
 
-> **extensions 활성화 필수:** Supabase Dashboard → Database → Extensions 에서 **`pg_net`** (푸시 전송) 과 **`pg_cron`** (스케줄링) 을 ON으로.
-> cron 모니터링: `select * from cron.job_run_details order by start_time desc limit 20;`
->
-> **Realtime 활성화:** Dashboard → Database → Replication 에서 `notifications` (운영진 뱃지)·`reservations`·`profiles` 테이블을 publication 에 추가. 모바일·웹 양쪽에서 Realtime 구독이 작동.
+## 1. 저장소 구조
 
-> **Geofence 좌표:** `0005_check_in.sql` 의 `is_within_campus()` 와 `mobile/src/lib/geofence.ts` 는 동일한 상수를 사용합니다. 운영팀 실측치로 바꿀 때는 **양쪽을 함께** 수정하세요.
-
-### 2. 운영진·행정실 계정 사전 발급 (PRD §2.2)
-```powershell
-$env:SUPABASE_URL = "https://<proj>.supabase.co"
-$env:SUPABASE_SERVICE_ROLE_KEY = "eyJ..."
-node scripts/create_staff.mjs ops@example.com 'Tmp!1234' OPERATOR '김운영'
-node scripts/create_staff.mjs admin@example.com 'Tmp!1234' ADMIN '최행정'
-```
-
-### 3. 관리자 웹 실행 (`web/`)
-```powershell
-cd web
-Copy-Item .env.local.example .env.local
-# .env.local 에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY 입력
-npm run dev
-```
-- http://localhost:3000 접속 → `/login` 리다이렉션
-- OPERATOR 로그인 → `/admin/students` (학생증 승인함)
-- ADMIN 로그인 → `/admin/dashboard`
-
-### 4. 학생 모바일 앱 실행 (`mobile/`)
-```powershell
-cd mobile
-Copy-Item .env.example .env
-# .env 에 EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY 입력
-npm start                 # Expo Dev Server, QR 코드로 Expo Go 접속
-# 또는: npx expo start
-```
-플로우: 회원가입(이메일/비밀번호/이름/학번) → 학생증 사진 제출 → `PENDING` → 운영진이 웹에서 승인 → 자동 전환(Realtime) → `(tabs)` 홈(빈 강의실).
-
-> 카메라/앨범 권한이 필요합니다. iOS Simulator 는 카메라가 없으므로 실기기 또는 Android 에뮬레이터 권장.
-
-### 3-1. 관리자 웹 배포 (Vercel)
-GitHub 레포가 연결된 상태에서 Vercel 대시보드로 배포하는 가장 짧은 경로.
-
-1. [vercel.com/new](https://vercel.com/new) → GitHub repo `yebin0419/roompick` import
-2. **Root Directory** 를 `web` 으로 지정 (중요 — 모노레포라 루트가 아님)
-3. Framework Preset 은 `Next.js` 자동 감지 유지
-4. **Environment Variables** 등록 (Production + Preview + Development 모두 체크):
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   > `SUPABASE_SERVICE_ROLE_KEY` 는 Vercel 에 넣지 않습니다 (로컬 `scripts/create_staff.mjs` 전용).
-5. Deploy
-6. 배포 완료 후 발급된 도메인(예: `roompick-xxx.vercel.app`)을 Supabase Dashboard 에 추가:
-   - **Authentication → URL Configuration → Site URL** 에 도메인 설정
-   - **Redirect URLs** 에 `https://<도메인>/*` 추가
-7. 커스텀 도메인 쓰려면 Vercel 프로젝트 → Settings → Domains 에서 추가
-
-**리전:** `web/vercel.json` 에 `icn1` (서울) 지정됨. 한국 사용자 응답속도 최적.
-
-**Preview Deployment:** PR 올리면 Vercel 이 자동으로 `*-git-<branch>-*.vercel.app` 발급. 머지 전 QA 가능.
-
-**빌드 커맨드:** Vercel 이 `web/package.json` 의 `build` 스크립트(`next build`)를 자동 사용. 별도 설정 불필요.
-
-### 4-1. 프로덕션 빌드 (EAS Build)
-Expo Go 로는 테스트까지만 가능. 앱 스토어 배포·커스텀 네이티브 모듈·production push 발급은 **EAS Build** 가 필요합니다.
-
-```powershell
-cd mobile
-npm i -g eas-cli
-eas login
-eas init                   # 프로젝트 생성 → app.json에 extra.eas.projectId 자동 주입
-eas build:configure
-eas build --platform ios --profile development
-eas build --platform android --profile development
-```
-
-이후 `mobile/src/lib/push.ts` 가 `Constants.expoConfig?.extra?.eas?.projectId` 를 자동으로 읽어 production push token 을 발급합니다.
-
-**bundle 식별자:** `app.json` 에 `ios.bundleIdentifier = ac.chungbuk.roompick`, `android.package = ac.chungbuk.roompick` 로 설정됨. 실제 배포 시 조직 명칭으로 교체하세요.
-
-**이미 설정된 플러그인:** expo-router / expo-notifications / expo-image-picker / expo-location. 각 플러그인의 iOS 권한 문구는 `app.json → ios.infoPlist`, Android 권한은 `android.permissions` 에 선언되어 있어 스토어 심사 때 그대로 제출됩니다.
-
-### 5. 시딩 재생성
-```powershell
-python scripts/seed.py            # supabase/seed.sql 재생성
-python scripts/seed.py --dry-run  # 파싱 결과만 요약
-```
-
-## 디렉토리
 ```
 roompick/
-├── PRD.md
-├── supabase/
-│   ├── migrations/
-│   │   ├── 0001_init.sql
-│   │   ├── 0002_storage.sql
-│   │   ├── 0003_profile_trigger.sql
-│   │   ├── 0004_reservations.sql
-│   │   ├── 0005_check_in.sql
-│   │   ├── 0006_reports.sql
-│   │   ├── 0007_report_views.sql
-│   │   ├── 0008_policy.sql
-│   │   ├── 0009_notifications.sql
-│   │   ├── 0010_cron.sql
-│   │   ├── 0011_monthly_views.sql
-│   │   ├── 0012_operations_reports.sql
-│   │   ├── 0013_preferences.sql
-│   │   └── 0014_staff_notifications.sql
-│   └── seed.sql
-├── scripts/
-│   ├── seed.py              # 엑셀 → seed.sql
-│   ├── create_staff.mjs     # 운영진/행정실 Admin API 발급
-│   └── inspect_*.py
-├── web/                     # Next.js 16 관리자 대시보드
-│   └── src/app/{login,admin/{notifications,students/[id],reservations/[id],reports/[id],rooms,dashboard,analytics,policy}}
-└── mobile/                  # Expo 학생 앱 (Expo Router + Supabase)
-    ├── app/
-    │   ├── _layout.tsx          # AuthProvider + Stack
-    │   ├── index.tsx            # 라우팅 게이트 (세션·승인상태 기반)
-    │   ├── (auth)/{sign-in,sign-up,verify}.tsx
-    │   ├── (gate)/{pending,rejected}.tsx
-    │   ├── (tabs)/
-    │   │   ├── index.tsx
-    │   │   ├── reservations/{_layout,index,[id]}.tsx   # 리스트 + 상세
-    │   │   ├── reports.tsx
-    │   │   └── profile.tsx
-    │   ├── reserve.tsx          # 예약 생성 폼 (push 네비게이션)
-    │   ├── check-in.tsx         # GPS → 라이브 카메라 → RPC 체크인
-    │   ├── report-new.tsx       # 신고 작성 (카테고리/강의실/설명/사진)
-    │   ├── notifications.tsx    # 인앱 알림 센터 (Realtime 구독)
-    │   └── preferences.tsx      # 맞춤 빈자리 알림 설정 (선호 강의실·교시)
-    └── src/{lib,providers,theme}
+├── PRD.md                           # 프로젝트 요구사항 문서
+├── README.md                        # 이 파일
+├── web/                             # Next.js 14 (App Router) 앱 — Vercel 배포 대상
+│   ├── src/app/                     # 라우트
+│   ├── src/lib/                     # Supabase 클라이언트 + 유틸
+│   └── middleware.ts                # 역할 기반 접근 제어
+├── supabase/migrations/             # 순서대로 실행해야 하는 SQL 마이그레이션
+└── scripts/                         # xlsx 시딩 + 관리자 계정 생성 스크립트
 ```
 
-## PRD §1~6 전 범위 MVP 커버 완료
+---
+
+## 2. Supabase 셋업
+
+### 2.1 프로젝트 생성
+
+1. https://supabase.com 에서 신규 프로젝트 생성
+2. **Project Settings → API** 에서 아래 값을 복사:
+   - `Project URL`
+   - `anon` public key
+   - `service_role` key (서버 전용, 절대 공개 금지)
+
+### 2.2 마이그레이션 적용
+
+Supabase Dashboard의 **SQL Editor** 에서 다음 파일을 **순서대로** 실행하거나,
+`supabase` CLI (`supabase db push`)로 적용합니다.
+
+```
+supabase/migrations/
+  0001_init.sql          # enums, 테이블 (profiles, rooms, courses, reservations, reports, notifications, system_policies)
+  0002_auth_trigger.sql  # auth.users → profiles 자동 생성
+  0003_rls.sql           # Row Level Security 정책
+  0004_storage.sql       # Storage 버킷(student-cards / checkin-photos / report-photos) + 정책
+  0005_rooms_seed.sql    # 강의실 마스터 30건 선적재
+```
+
+### 2.3 환경변수
+
+```bash
+cp web/.env.local.example web/.env.local
+# 아래 값 채우기
+# NEXT_PUBLIC_SUPABASE_URL=...
+# NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+# SUPABASE_SERVICE_ROLE_KEY=...
+```
+
+### 2.4 강의 시간표 적재
+
+```bash
+pip install openpyxl requests
+python scripts/seed_courses.py "개설강좌 목록_*.xlsx"
+# → public.courses 테이블에 교시 단위로 적재됨 (수업시간 역산용)
+```
+
+필요하면 강의실 데이터를 다시 적재:
+```bash
+python scripts/seed_rooms.py 충북대학교_경영대_강의실_목록_v2.xlsx
+```
+
+### 2.5 관리자/운영진 계정 생성
+
+```bash
+python scripts/create_admin.py admin@example.com 'StrongPass!2' "최행정" ADMIN
+python scripts/create_admin.py op@example.com    'StrongPass!2' "자리있조" OPERATOR
+```
+
+> 학생은 `/login`에서 자체 가입 후 `PENDING → APPROVED`, 관리자/운영진은 사전 생성만 가능.
+
+---
+
+## 3. 로컬 개발
+
+```bash
+cd web
+npm install
+npm run dev          # http://localhost:3000
+```
+
+사이드 바이 사이드 테스트 (별도 터미널):
+```bash
+cd web && npm run typecheck
+```
+
+---
+
+## 4. Vercel 배포
+
+1. Vercel에 로그인 → **New Project** → 이 저장소 import
+2. **Root Directory**: `web` 로 설정 (중요)
+3. **Environment Variables** 에 아래 3개 등록:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+4. Deploy
+
+빌드가 성공하면 Supabase **Authentication → URL Configuration** 에서
+`Site URL` 과 `Redirect URLs` 에 Vercel 도메인을 등록하세요.
+
+---
+
+## 5. 접속 경로 요약
+
+| 역할 | 진입 | 보호 |
+|---|---|---|
+| 비회원 | `/` | 랜딩 → `/login` 또는 `/admin/login` |
+| STUDENT(PENDING) | `/login` 가입 후 `/student/verify` 로 강제 이동 | 미승인 상태에서 다른 `/student/*` 접근 시 verify로 리다이렉트 |
+| STUDENT(APPROVED) | `/student` 대시보드 | 미들웨어가 역할 검증 |
+| OPERATOR / ADMIN | `/admin/login` → `/admin` | 학생 계정은 `/admin/*` 접근 시 로그인으로 리다이렉트 |
+
+---
+
+## 6. 핵심 데이터 흐름
+
+```
+개설강좌 xlsx
+   │ seed_courses.py (교시 매핑 역산)
+   ▼
+public.courses (room_code, weekday, start_period, end_period)
+   │
+   │ /student/* 서버 컴포넌트가 조회
+   ▼
+freeSlotsForDay() 로 (수업 + 기존 예약) 여집합 산출
+   ▼
+학생: 1분 예약 / 체크인 사진 / 신고
+   │
+   ▼
+운영진: 승인/취소/노쇼/신고 처리
+   │
+   ▼
+행정실: /admin/analytics 로 월·학기 리포트 및 자율조정 정책 세팅
+```
+
+---
+
+## 7. 주요 테이블 요약
+
+| 테이블 | 목적 |
+|---|---|
+| `profiles` | 사용자 역할·학번·학생증 승인 상태 |
+| `rooms` | 강의실 마스터 (code 유일) |
+| `courses` | 정규 수업 시간표(교시 단위) |
+| `reservations` | 학생 예약 / 체크인 / 노쇼 상태 |
+| `reports` | 고장·청결·노쇼 신고 |
+| `notifications` | 사용자 알림함 |
+| `system_policies` | 유예 시간·최대 예약시간 등 자율조정 정책 |
+
+RLS 요지: 학생은 본인 데이터만, OPERATOR/ADMIN은 전체 조회·수정 가능. `system_policies` 쓰기는 ADMIN만.

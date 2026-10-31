@@ -1,29 +1,19 @@
-import { redirect } from "next/navigation";
-
 import { createClient } from "@/lib/supabase/server";
-
 import ReportsClient from "./ReportsClient";
 
-export default async function StudentReports() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, approval_status")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (!profile || profile.role !== "STUDENT") redirect("/login?error=forbidden");
-  if (profile.approval_status !== "APPROVED") redirect("/student");
+export const dynamic = "force-dynamic";
+export const metadata = { title: "신고 · 룸픽" };
 
-  return (
-    <div className="mx-auto max-w-xl px-6 py-8 space-y-5">
-      <header>
-        <h1 className="text-xl font-semibold tracking-tight">신고</h1>
-      </header>
-      <ReportsClient userId={user.id} />
-    </div>
-  );
+export default async function ReportsPage() {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const [{ data: rooms }, { data: my }] = await Promise.all([
+    supabase.from("rooms").select("id, code").order("code"),
+    supabase.from("reports")
+      .select("id, category, content, status, created_at, room:rooms(code)")
+      .eq("reporter_id", user!.id)
+      .order("created_at", { ascending: false })
+      .limit(20),
+  ]);
+  return <ReportsClient rooms={rooms ?? []} myReports={(my ?? []) as any} />;
 }

@@ -1,66 +1,142 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-
 import { createClient } from "@/lib/supabase/server";
+import { computeBusyIntervals } from "@/lib/availability";
+import { freeSlotsForDay } from "@/lib/periods";
 
-import StudentHomeClient from "./StudentHomeClient";
+export const dynamic = "force-dynamic";
 
 export default async function StudentHome() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, approval_status, name, student_number, rejected_reason")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (!profile || profile.role !== "STUDENT") redirect("/login?error=forbidden");
+  const [{ data: rooms }, { data: courses }, { data: myReservations }] = await Promise.all([
+    supabase.from("rooms").select("id, code, building, floor, room_type, capacity").order("code"),
+    supabase.from("courses").select("room_code, weekday, start_period, end_period"),
+    supabase.from("reservations")
+      .select("id, start_time, end_time, status, room:rooms(code, building, floor)")
+      .eq("user_id", user!.id)
+      .gte("end_time", new Date().toISOString())
+      .order("start_time")
+      .limit(5),
+  ]);
 
-  if (profile.approval_status === "APPROVED") {
-    return (
-      <StudentHomeClient
-        userId={user.id}
-        name={profile.name}
-        studentNumber={profile.student_number}
-      />
-    );
+  const today = new Date();
+  const nowHHMM = `${String(today.getHours()).padStart(2, "0")}:${String(today.getMinutes()).padStart(2, "0")}`;
+
+  const { data: todaysRes } = await supabase
+    .from("reservations")
+    .select("room_id, start_time, end_time")
+    .in("status", ["RESERVED", "CHECKED_IN"]);
+
+  const busyMap = computeBusyIntervals({
+    date: today,
+    rooms: rooms ?? [],
+    courses: (courses ?? []) as any,
+    reservations: (todaysRes ?? []) as any,
+  });
+
+  const freeNow: { code: string; building: string; floor: string | null; until: string }[] = [];
+  for (const r of rooms ?? []) {
+    const free = freeSlotsForDay(busyMap.get(r.id) ?? []);
+    const current = free.find((s) => s.start <= nowHHMM && nowHHMM < s.end);
+    if (current) {
+      freeNow.push({
+        code: r.code,
+        building: r.building,
+        floor: r.floor,
+        until: current.end,
+      });
+    }
   }
 
   return (
-    <div className="mx-auto flex max-w-xl flex-col items-center gap-6 px-6 py-16 text-center">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          안녕하세요, {profile.name ?? "학생"}님
+    <div className="space-y-6">
+      <section className="rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white p-6 shadow-sm">
+        <p className="text-xs opacity-90">룸픽 · 지금</p>
+        <h1 className="mt-1 text-2xl font-bold">
+          지금 비어 있는 강의실 {freeNow.length}개
         </h1>
-        <p className="mt-2 text-sm text-zinc-500">학번 {profile.student_number ?? "-"}</p>
-      </header>
+        <p className="mt-1 text-sm opacity-90">
+          {new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" })} · {nowHHMM}
+        </p>
+        <Link
+          href="/student/reserve"
+          className="mt-5 inline-flex rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur px-4 py-2 text-sm font-medium"
+        >
+          전체 보기 →
+        </Link>
+      </section>
 
-      {profile.approval_status === "PENDING" ? (
-        <section className="w-full rounded-xl border border-amber-200 bg-amber-50 p-6 shadow-sm text-left space-y-2">
-          <h2 className="text-sm font-semibold text-amber-900">학생증 승인 대기 중</h2>
-          <p className="text-sm text-amber-800">
-            운영진이 학번과 학생증을 대조하고 있어요. 승인되면 전체 기능이 열립니다.
-          </p>
-        </section>
-      ) : (
-        <section className="w-full rounded-xl border border-red-200 bg-red-50 p-6 shadow-sm text-left space-y-2">
-          <h2 className="text-sm font-semibold text-red-900">학생증이 거절되었어요</h2>
-          {profile.rejected_reason && (
-            <p className="text-sm text-red-800">사유: {profile.rejected_reason}</p>
+      <section>
+        <div className="flex items-end justify-between">
+          <h2 className="text-lg font-semibold text-slate-900">바로 Pick</h2>
+          <Link href="/student/reserve" className="text-xs text-brand-500">전체 →</Link>
+        </div>
+        <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {freeNow.slice(0, 6).map((r) => (
+            <li key={r.code} className="rounded-xl bg-white border border-slate-200 p-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="font-semibold text-slate-900">{r.code}</p>
+                  <p className="text-xs text-slate-500">{r.building}동 · {r.floor}</p>
+                </div>
+                <span className="text-xs rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5">
+                  ~{r.until}
+                </span>
+              </div>
+              <Link
+                href={`/student/reserve?room=${encodeURIComponent(r.code)}`}
+                className="mt-3 block text-center text-sm rounded-lg bg-brand-500 hover:bg-brand-600 text-white py-2"
+              >
+                1분 예약
+              </Link>
+            </li>
+          ))}
+          {freeNow.length === 0 && (
+            <p className="text-sm text-slate-500">현재 즉시 사용 가능한 강의실이 없어요.</p>
           )}
-          <p className="text-xs text-red-700">아래 버튼으로 다시 제출해 주세요.</p>
-        </section>
-      )}
+        </ul>
+      </section>
 
-      <Link
-        href="/student/verify"
-        className="w-full rounded-lg bg-zinc-900 py-3 text-center text-sm font-medium text-white hover:bg-zinc-800"
-      >
-        학생증 {profile.approval_status === "REJECTED" ? "재제출" : "제출"}하러 가기 →
-      </Link>
+      <section>
+        <h2 className="text-lg font-semibold text-slate-900">내 예약</h2>
+        <ul className="mt-3 space-y-2">
+          {(myReservations ?? []).map((r: any) => (
+            <li key={r.id} className="rounded-xl bg-white border border-slate-200 p-4 flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-slate-900">{r.room?.code}</p>
+                <p className="text-xs text-slate-500">
+                  {new Date(r.start_time).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  {" ~ "}
+                  {new Date(r.end_time).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </div>
+              <StatusChip status={r.status} />
+            </li>
+          ))}
+          {(myReservations ?? []).length === 0 && (
+            <p className="text-sm text-slate-500">예정된 예약이 없어요.</p>
+          )}
+        </ul>
+      </section>
     </div>
+  );
+}
+
+function StatusChip({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    RESERVED: "bg-blue-50 text-blue-700",
+    CHECKED_IN: "bg-emerald-50 text-emerald-700",
+    CANCELLED: "bg-slate-100 text-slate-500",
+    COMPLETED: "bg-slate-100 text-slate-500",
+    NO_SHOW: "bg-red-50 text-red-700",
+  };
+  const label: Record<string, string> = {
+    RESERVED: "예약됨", CHECKED_IN: "입실", CANCELLED: "취소", COMPLETED: "완료", NO_SHOW: "노쇼",
+  };
+  return (
+    <span className={`text-xs rounded-full px-2 py-0.5 ${map[status] ?? "bg-slate-100"}`}>
+      {label[status] ?? status}
+    </span>
   );
 }

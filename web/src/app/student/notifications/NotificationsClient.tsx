@@ -1,120 +1,65 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
-
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
-import type { AppNotification } from "@/lib/supabase/types";
 
-type Props = { userId: string };
+type N = { id: string; title: string; body: string | null; link: string | null;
+  is_read: boolean; created_at: string };
 
-function studentLinkFromData(data: unknown): string | null {
-  if (!data || typeof data !== "object") return null;
-  const d = data as Record<string, unknown>;
-  const roomCode = typeof d.room_code === "string" ? d.room_code : null;
-  const date = typeof d.date === "string" ? d.date : null;
-  const startPeriod = typeof d.start_period === "string" ? d.start_period : null;
-  if (roomCode && date && startPeriod) {
-    const q = new URLSearchParams({ room: roomCode, date, period: startPeriod });
-    return `/student/reserve?${q}`;
+export default function NotificationsClient({ items }: { items: N[] }) {
+  const router = useRouter();
+  const supabase = createClient();
+
+  async function markRead(id: string) {
+    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+    router.refresh();
   }
-  const reservationId = typeof d.reservation_id === "string" ? d.reservation_id : null;
-  if (reservationId) return `/student`;
-  return null;
-}
-
-export default function NotificationsClient({ userId }: Props) {
-  const supabase = useMemo(() => createClient(), []);
-  const [rows, setRows] = useState<AppNotification[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    const { data } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(100);
-    setRows((data ?? []) as AppNotification[]);
-    setLoading(false);
-  }, [supabase, userId]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  useEffect(() => {
-    const channel = supabase
-      .channel(`student-notifications:${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${userId}`,
-        },
-        () => load(),
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [supabase, userId, load]);
-
-  // 진입 시 모두 읽음
-  useEffect(() => {
-    if (!loading && rows.some((r) => !r.read_at)) {
-      supabase
-        .from("notifications")
-        .update({ read_at: new Date().toISOString() })
-        .eq("user_id", userId)
-        .is("read_at", null)
-        .then(() => {
-          /* no-op */
-        });
-    }
-  }, [supabase, userId, rows, loading]);
+  async function markAll() {
+    await supabase.from("notifications").update({ is_read: true }).eq("is_read", false);
+    router.refresh();
+  }
 
   return (
-    <div className="space-y-2">
-      {loading && (
-        <div className="rounded-xl border border-zinc-200 bg-white py-10 text-center text-sm text-zinc-400">
-          불러오는 중...
-        </div>
-      )}
-      {!loading && rows.length === 0 && (
-        <div className="rounded-xl border border-dashed border-zinc-300 bg-white py-10 text-center text-sm text-zinc-500">
-          아직 받은 알림이 없어요.
-        </div>
-      )}
-      {rows.map((n) => {
-        const href = studentLinkFromData(n.data);
-        const unread = !n.read_at;
-        const inner = (
-          <div
-            className={`rounded-xl border px-4 py-3 shadow-sm transition ${
-              unread ? "border-blue-200 bg-blue-50" : "border-zinc-200 bg-white"
-            } ${href ? "hover:bg-zinc-50" : ""}`}
+    <div className="space-y-4">
+      <header className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-slate-900">알림</h1>
+        <button onClick={markAll} className="text-xs text-slate-500 underline underline-offset-4">
+          모두 읽음
+        </button>
+      </header>
+
+      <ul className="space-y-2">
+        {items.map((n) => (
+          <li
+            key={n.id}
+            className={`rounded-xl border p-4 ${
+              n.is_read ? "bg-white border-slate-200" : "bg-brand-50 border-brand-200"
+            }`}
           >
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-zinc-900">{n.title}</span>
-                {unread && <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />}
-              </div>
-              <span className="text-[11px] text-zinc-400">
+              <p className="font-medium text-slate-900">{n.title}</p>
+              <span className="text-xs text-slate-400">
                 {new Date(n.created_at).toLocaleString("ko-KR")}
               </span>
             </div>
-            <p className="mt-1 line-clamp-2 text-sm text-zinc-700">{n.body}</p>
-          </div>
-        );
-        return (
-          <div key={n.id}>
-            {href ? <Link href={href}>{inner}</Link> : inner}
-          </div>
-        );
-      })}
+            {n.body && <p className="mt-1 text-sm text-slate-600">{n.body}</p>}
+            <div className="mt-2 flex items-center gap-3 text-xs">
+              {n.link && (
+                <Link href={n.link} className="text-brand-500">자세히 →</Link>
+              )}
+              {!n.is_read && (
+                <button onClick={() => markRead(n.id)} className="text-slate-500 underline underline-offset-4">
+                  읽음 처리
+                </button>
+              )}
+            </div>
+          </li>
+        ))}
+        {items.length === 0 && (
+          <p className="text-sm text-slate-500">알림이 없습니다.</p>
+        )}
+      </ul>
     </div>
   );
 }

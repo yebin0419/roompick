@@ -1,281 +1,170 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
-
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 
-type Mode = "student-signin" | "student-signup" | "admin-signin";
-
-const SUBTITLES: Record<Mode, string> = {
-  "student-signin": "경영대 학생 전용. 로그인 후 학생증 승인을 거쳐 사용합니다.",
-  "student-signup": "회원가입 후 학생증을 제출하면 운영진 승인을 받아요.",
-  "admin-signin": "운영진·행정실 전용 사전 발급 계정 로그인",
-};
-
-const SUBMIT_LABELS: Record<Mode, string> = {
-  "student-signin": "학생 로그인",
-  "student-signup": "회원가입 후 학생증 제출",
-  "admin-signin": "관리자 로그인",
-};
+type Mode = "signin" | "signup";
 
 export default function LoginForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const nextParam = searchParams.get("next") ?? undefined;
-
-  const [mode, setMode] = useState<Mode>("student-signin");
+  const supabase = createClient();
+  const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [studentNumber, setStudentNumber] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [errorText, setErrorText] = useState<string | null>(null);
+  const [studentId, setStudentId] = useState("");
+  const [cardFile, setCardFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
-  const supabase = useMemo(() => createClient(), []);
+  async function uploadCard(userId: string): Promise<string | null> {
+    if (!cardFile) return null;
+    const ext = cardFile.name.split(".").pop() ?? "jpg";
+    const path = `${userId}/${Date.now()}.${ext}`;
+    const up = await supabase.storage.from("student-cards").upload(path, cardFile, {
+      contentType: cardFile.type || "image/jpeg",
+      upsert: true,
+    });
+    if (up.error) throw up.error;
+    return supabase.storage.from("student-cards").getPublicUrl(path).data.publicUrl;
+  }
 
-  const resetForm = () => {
-    setErrorText(null);
-    setPassword("");
-    setName("");
-    setStudentNumber("");
-  };
-
-  const switchMode = (next: Mode) => {
-    resetForm();
-    setMode(next);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true);
-    setErrorText(null);
+    setError(null); setInfo(null); setLoading(true);
     try {
-      if (mode === "student-signup") {
-        if (!name.trim() || !studentNumber.trim()) {
-          throw new Error("이름과 학번을 입력해 주세요.");
+      if (mode === "signup") {
+        if (!cardFile) throw new Error("학생증 사진을 첨부해주세요.");
+        const { data, error } = await supabase.auth.signUp({
+          email, password,
+          options: { data: { name, student_id: studentId } },
+        });
+        if (error) throw error;
+
+        if (data.session && data.user) {
+          // 세션이 바로 생긴 경우 (이메일 확인 비활성): 업로드까지 진행
+          const url = await uploadCard(data.user.id);
+          await supabase.from("profiles").update({
+            name, student_id: studentId, student_card_url: url,
+          }).eq("id", data.user.id);
+          router.replace("/student");
+          router.refresh();
+        } else {
+          // 이메일 확인 활성: 확인 후 로그인하면 verify 페이지로 안내
+          setInfo("가입 완료. 이메일 인증을 완료한 뒤 로그인하면 학생증 사진이 업로드됩니다.");
+          // 이메일 확인 완료 후 다시 접속하도록 파일은 유지하지 않음
+          setCardFile(null);
+          setMode("signin");
         }
-        if (password.length < 8) {
-          throw new Error("비밀번호는 8자 이상이어야 합니다.");
-        }
-
-        try {
-          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              data: { name: name.trim(), student_number: studentNumber.trim() },
-              emailRedirectTo: `${window.location.origin}/student/verify`,
-            },
-          });
-          if (signUpError) throw signUpError;
-
-          // 이메일 확인이 필수면 session 이 null 로 떨어진다 → 즉시 비밀번호로 로그인 시도
-          let session = signUpData.session;
-          if (!session) {
-            const { data: signInData, error: signInError } =
-              await supabase.auth.signInWithPassword({ email, password });
-            if (signInError) throw signInError;
-            session = signInData.session;
-          }
-          if (!session) {
-            // 이메일 확인 대기 상태 — 폼 안내만 노출
-            throw new Error("confirm-required");
-          }
-
-          // 세션 확보 성공 → 쿠키 반영 보장 위해 full navigation
-          window.location.href = "/student/verify";
-          return;
-        } catch (signupFlowErr) {
-          // 가입 자체는 성공했을 가능성이 커 UX 상 로그인 모드로 안내 전환
-          alert("가입 완료! 로그인 후 학생증을 제출해주세요.");
-          switchMode("student-signin");
-          return;
-        }
-      }
-
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error || !data.user) {
-        throw new Error("이메일 또는 비밀번호가 올바르지 않습니다.");
-      }
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", data.user.id)
-        .maybeSingle();
-
-      if (mode === "student-signin") {
-        if (profile?.role !== "STUDENT") {
-          await supabase.auth.signOut();
-          throw new Error("학생 계정이 아닙니다. 관리자 로그인을 이용해 주세요.");
-        }
-        router.push(nextParam?.startsWith("/student") ? nextParam : "/student");
       } else {
-        if (profile?.role !== "OPERATOR" && profile?.role !== "ADMIN") {
-          await supabase.auth.signOut();
-          throw new Error("관리자 권한이 없는 계정입니다.");
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        // 로그인 폼에서 학생증 파일이 선택되어 있으면 함께 업로드
+        if (cardFile && data.user) {
+          const url = await uploadCard(data.user.id);
+          await supabase.from("profiles").update({ student_card_url: url }).eq("id", data.user.id);
         }
-        router.push(nextParam?.startsWith("/admin") ? nextParam : "/admin");
+        router.replace("/student");
+        router.refresh();
       }
-    } catch (err) {
-      setErrorText(err instanceof Error ? err.message : "로그인에 실패했습니다.");
+    } catch (err: any) {
+      setError(err.message ?? String(err));
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
-  };
-
-  const isAdminMode = mode === "admin-signin";
-  const isSignUp = mode === "student-signup";
+  }
 
   return (
-    <div className="w-full max-w-sm space-y-6">
-      <header className="space-y-2 text-center">
-        <h1 className="text-3xl font-semibold tracking-tight">룸픽 (RoomPick)</h1>
-        <p className="text-sm text-zinc-500">{SUBTITLES[mode]}</p>
-      </header>
+    <div className="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm">
+      <div className="flex rounded-xl bg-slate-100 p-1 text-sm font-medium">
+        {(["signin", "signup"] as Mode[]).map((m) => (
+          <button
+            key={m}
+            onClick={() => { setMode(m); setError(null); setInfo(null); }}
+            className={`flex-1 py-2 rounded-lg transition ${
+              mode === m ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
+            }`}
+            type="button"
+          >
+            {m === "signin" ? "로그인" : "회원가입"}
+          </button>
+        ))}
+      </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-4 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm"
-      >
-        {isSignUp && (
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        {mode === "signup" && (
           <>
-            <Field label="이름" value={name} onChange={setName} autoComplete="name" autoFocus />
-            <Field
-              label="학번"
-              value={studentNumber}
-              onChange={setStudentNumber}
-              inputMode="numeric"
-              autoComplete="off"
-            />
+            <Field label="이름" value={name} onChange={setName} required />
+            <Field label="학번" value={studentId} onChange={setStudentId} required />
           </>
         )}
+        <Field label="이메일" type="email" value={email} onChange={setEmail} required />
+        <Field label="비밀번호" type="password" value={password} onChange={setPassword} required />
 
-        <Field
-          label="이메일"
-          type="email"
-          value={email}
-          onChange={setEmail}
-          autoComplete="email"
-          autoFocus={!isSignUp}
-        />
+        {mode === "signup" && (
+          <label className="block">
+            <span className="block text-xs font-medium text-slate-600 mb-1.5">
+              학생증 사진 <span className="text-red-500">*</span>
+            </span>
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={(e) => setCardFile(e.target.files?.[0] ?? null)}
+              required
+              className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-500 file:px-3 file:py-2 file:text-white"
+            />
+            {cardFile && (
+              <p className="mt-1 text-xs text-slate-500">선택됨: {cardFile.name}</p>
+            )}
+            <p className="mt-1 text-xs text-slate-400">
+              이미지 1장. 가입 후 운영진 승인이 완료되면 모든 기능이 열립니다.
+            </p>
+          </label>
+        )}
 
-        <Field
-          label={isSignUp ? "비밀번호 (8자 이상)" : "비밀번호"}
-          type="password"
-          value={password}
-          onChange={setPassword}
-          autoComplete={isSignUp ? "new-password" : "current-password"}
-        />
-
-        {errorText && (
-          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-            {errorText}
+        {error && (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+            {error}
+          </p>
+        )}
+        {info && (
+          <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+            {info}
           </p>
         )}
 
         <button
           type="submit"
-          disabled={busy}
-          className="w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50"
+          disabled={loading}
+          className="w-full rounded-xl bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-medium py-3 transition"
         >
-          {busy ? "처리 중..." : SUBMIT_LABELS[mode]}
+          {loading ? "처리 중..." : mode === "signin" ? "로그인" : "가입 + 학생증 제출"}
         </button>
-
-        {!isAdminMode && (
-          <p className="text-center text-sm text-zinc-500">
-            {isSignUp ? (
-              <>
-                이미 계정이 있나요?{" "}
-                <button
-                  type="button"
-                  onClick={() => switchMode("student-signin")}
-                  className="font-medium text-zinc-900 underline-offset-4 hover:underline"
-                >
-                  학생 로그인
-                </button>
-              </>
-            ) : (
-              <>
-                처음 방문하셨나요?{" "}
-                <button
-                  type="button"
-                  onClick={() => switchMode("student-signup")}
-                  className="font-medium text-zinc-900 underline-offset-4 hover:underline"
-                >
-                  학생 회원가입하기
-                </button>
-              </>
-            )}
-          </p>
-        )}
       </form>
-
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-zinc-200" />
-        </div>
-        <div className="relative flex justify-center">
-          <span className="bg-zinc-50 px-3 text-[11px] uppercase tracking-wider text-zinc-400">
-            또는
-          </span>
-        </div>
-      </div>
-
-      {isAdminMode ? (
-        <button
-          type="button"
-          onClick={() => switchMode("student-signin")}
-          className="w-full rounded-lg border border-zinc-300 bg-white py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100"
-        >
-          ← 학생 로그인으로 돌아가기
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={() => switchMode("admin-signin")}
-          className="w-full rounded-lg border border-zinc-300 bg-white py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100"
-        >
-          🔐 관리자 전용 로그인 (운영진 / 행정실)
-        </button>
-      )}
     </div>
   );
 }
 
-type FieldProps = {
+function Field(props: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   type?: string;
-  autoComplete?: string;
-  autoFocus?: boolean;
-  inputMode?: "text" | "numeric" | "email" | "tel";
-};
-
-function Field({
-  label,
-  value,
-  onChange,
-  type = "text",
-  autoComplete,
-  autoFocus,
-  inputMode,
-}: FieldProps) {
+  required?: boolean;
+}) {
   return (
-    <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-zinc-700">{label}</label>
+    <label className="block">
+      <span className="block text-xs font-medium text-slate-600 mb-1.5">{props.label}</span>
       <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        required
-        autoComplete={autoComplete}
-        autoFocus={autoFocus}
-        inputMode={inputMode}
-        className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10"
+        type={props.type ?? "text"}
+        value={props.value}
+        onChange={(e) => props.onChange(e.target.value)}
+        required={props.required}
+        className="w-full rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none px-3.5 py-2.5 text-sm"
       />
-    </div>
+    </label>
   );
 }
