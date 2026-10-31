@@ -1,7 +1,21 @@
 import { redirect } from "next/navigation";
 
-export default function RootPage() {
-  // 관리자 웹은 /admin 또는 /login만 사용. 루트 접근은 /admin으로 포워드하고
-  // middleware에서 세션 상태에 따라 /login으로 떨어뜨린다.
-  redirect("/admin");
+import { createClient } from "@/lib/supabase/server";
+
+export default async function RootPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profile?.role === "STUDENT") redirect("/student");
+  if (profile?.role === "OPERATOR" || profile?.role === "ADMIN") redirect("/admin");
+  redirect("/login");
 }
