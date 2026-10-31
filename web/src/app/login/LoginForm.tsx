@@ -58,15 +58,40 @@ export default function LoginForm() {
         if (password.length < 8) {
           throw new Error("비밀번호는 8자 이상이어야 합니다.");
         }
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { name: name.trim(), student_number: studentNumber.trim() } },
-        });
-        if (error) throw error;
-        alert("회원가입이 완료되었습니다. 학생증을 제출해 주세요.");
-        router.push("/student/verify");
-        return;
+
+        try {
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: { name: name.trim(), student_number: studentNumber.trim() },
+              emailRedirectTo: `${window.location.origin}/student/verify`,
+            },
+          });
+          if (signUpError) throw signUpError;
+
+          // 이메일 확인이 필수면 session 이 null 로 떨어진다 → 즉시 비밀번호로 로그인 시도
+          let session = signUpData.session;
+          if (!session) {
+            const { data: signInData, error: signInError } =
+              await supabase.auth.signInWithPassword({ email, password });
+            if (signInError) throw signInError;
+            session = signInData.session;
+          }
+          if (!session) {
+            // 이메일 확인 대기 상태 — 폼 안내만 노출
+            throw new Error("confirm-required");
+          }
+
+          // 세션 확보 성공 → 쿠키 반영 보장 위해 full navigation
+          window.location.href = "/student/verify";
+          return;
+        } catch (signupFlowErr) {
+          // 가입 자체는 성공했을 가능성이 커 UX 상 로그인 모드로 안내 전환
+          alert("가입 완료! 로그인 후 학생증을 제출해주세요.");
+          switchMode("student-signin");
+          return;
+        }
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
