@@ -1,0 +1,65 @@
+{
+  "expo": {
+    "name": "roompick",
+    "slug": "roompick",
+    "scheme": "roompick",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "ac.chungbuk.roompick",
+      "infoPlist": {
+        "NSCameraUsageDescription": "학생증 사진 제출, 체크인 사진 촬영, 신고 사진 첨부에 사용됩니다.",
+        "NSPhotoLibraryUsageDescription": "학생증·신고 사진 첨부에 사용됩니다.",
+        "NSLocationWhenInUseUsageDescription": "강의실 체크인 시 경영대 건물 안에 있는지 확인하는 데 사용됩니다. 위치 데이터는 체크인 기록 외에는 저장되지 않습니다."
+      }
+    },
+    "android": {
+      "package": "ac.chungbuk.roompick",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "READ_MEDIA_IMAGES"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#18181b",
+          "defaultChannel": "default"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "학생증·체크인·신고 사진 촬영을 위해 카메라에 접근합니다.",
+          "photosPermission": "학생증·신고 사진 선택을 위해 앨범에 접근합니다.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "강의실 체크인 시 경영대 건물 안에 있는지 확인합니다.",
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ]
+    ]
+  }
+}

@@ -60,6 +60,28 @@ npm start                 # Expo Dev Server, QR 코드로 Expo Go 접속
 
 > 카메라/앨범 권한이 필요합니다. iOS Simulator 는 카메라가 없으므로 실기기 또는 Android 에뮬레이터 권장.
 
+### 3-1. 관리자 웹 배포 (Vercel)
+GitHub 레포가 연결된 상태에서 Vercel 대시보드로 배포하는 가장 짧은 경로.
+
+1. [vercel.com/new](https://vercel.com/new) → GitHub repo `yebin0419/roompick` import
+2. **Root Directory** 를 `web` 으로 지정 (중요 — 모노레포라 루트가 아님)
+3. Framework Preset 은 `Next.js` 자동 감지 유지
+4. **Environment Variables** 등록 (Production + Preview + Development 모두 체크):
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   > `SUPABASE_SERVICE_ROLE_KEY` 는 Vercel 에 넣지 않습니다 (로컬 `scripts/create_staff.mjs` 전용).
+5. Deploy
+6. 배포 완료 후 발급된 도메인(예: `roompick-xxx.vercel.app`)을 Supabase Dashboard 에 추가:
+   - **Authentication → URL Configuration → Site URL** 에 도메인 설정
+   - **Redirect URLs** 에 `https://<도메인>/*` 추가
+7. 커스텀 도메인 쓰려면 Vercel 프로젝트 → Settings → Domains 에서 추가
+
+**리전:** `web/vercel.json` 에 `icn1` (서울) 지정됨. 한국 사용자 응답속도 최적.
+
+**Preview Deployment:** PR 올리면 Vercel 이 자동으로 `*-git-<branch>-*.vercel.app` 발급. 머지 전 QA 가능.
+
+**빌드 커맨드:** Vercel 이 `web/package.json` 의 `build` 스크립트(`next build`)를 자동 사용. 별도 설정 불필요.
+
 ### 4-1. 프로덕션 빌드 (EAS Build)
 Expo Go 로는 테스트까지만 가능. 앱 스토어 배포·커스텀 네이티브 모듈·production push 발급은 **EAS Build** 가 필요합니다.
 
