@@ -15,6 +15,7 @@ export default function UploadCard({ userId }: Props) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -79,14 +80,46 @@ export default function UploadCard({ userId }: Props) {
         .eq("id", userId);
       if (profErr) throw profErr;
 
-      alert("학생증 제출이 완료되었습니다. 운영진 승인 대기 중입니다.");
-      window.location.href = "/student";
+      alert("제출이 완료되었습니다. 운영진 승인 후 이용 가능합니다.");
+      setSubmitted(true);
     } catch (e) {
       setErrorText(e instanceof Error ? e.message : "업로드에 실패했어요.");
     } finally {
       setBusy(false);
     }
   };
+
+  if (submitted) {
+    return (
+      <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 shadow-sm space-y-3">
+        <h2 className="text-base font-semibold text-emerald-900">
+          학생증 제출이 완료되었어요
+        </h2>
+        <p className="text-sm text-emerald-800">
+          운영진이 학번과 사진을 대조한 뒤 승인하면 전체 기능이 열립니다.
+          승인 결과가 반영되면 알림으로 안내해 드려요.
+        </p>
+        <div className="flex gap-2 pt-2">
+          <a
+            href="/student"
+            className="flex-1 rounded-lg bg-zinc-900 py-2.5 text-center text-sm font-medium text-white hover:bg-zinc-800"
+          >
+            학생 홈으로
+          </a>
+          <button
+            type="button"
+            onClick={() => {
+              clearSelection();
+              setSubmitted(false);
+            }}
+            className="flex-1 rounded-lg border border-zinc-300 bg-white py-2.5 text-sm text-zinc-700 hover:bg-zinc-50"
+          >
+            다시 제출하기
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm space-y-4">
@@ -159,7 +192,7 @@ export default function UploadCard({ userId }: Props) {
         disabled={!file || busy}
         className="w-full rounded-lg bg-zinc-900 py-3 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50"
       >
-        {busy ? "업로드 중..." : "제출하기"}
+        {busy ? "업로드 중..." : "학생증 제출하기"}
       </button>
     </section>
   );
