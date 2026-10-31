@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { signOut } from "@/app/login/actions";
 import { createClient } from "@/lib/supabase/server";
 
+import UploadCard from "./UploadCard";
+
 export default async function StudentVerify() {
   const supabase = await createClient();
   const {
@@ -13,7 +15,7 @@ export default async function StudentVerify() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, approval_status, student_id_card_url, rejected_reason")
+    .select("role, approval_status, rejected_reason")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -28,9 +30,9 @@ export default async function StudentVerify() {
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6 px-6 py-16">
       <header className="space-y-2 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">학생증 제출</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">학생증을 인증해주세요</h1>
         <p className="text-sm text-zinc-500">
-          승인 전까지 예약·체크인 등 전체 기능이 제한됩니다.
+          운영진 승인을 위해 학생증 사진(또는 재학증명서)을 첨부해 주세요.
         </p>
       </header>
 
@@ -41,20 +43,13 @@ export default async function StudentVerify() {
         </div>
       )}
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm space-y-3">
-        <h2 className="text-sm font-semibold text-zinc-800">
-          모바일 앱에서 제출해 주세요
-        </h2>
-        <p className="text-sm text-zinc-600">
-          학생증 사진 촬영과 제출은 룸픽 모바일 앱에서만 가능합니다. 앱을 설치하고 같은
-          계정으로 로그인한 뒤 안내된 화면에서 제출해 주세요.
-        </p>
-        <ul className="list-disc space-y-1 pl-5 text-xs text-zinc-500">
-          <li>실시간 카메라 촬영 또는 앨범에서 선택 가능</li>
-          <li>제출 후 운영진이 승인하면 자동으로 전환됩니다</li>
-          <li>거절 시 사유와 함께 재제출 안내가 전달됩니다</li>
-        </ul>
-      </section>
+      <UploadCard userId={user.id} />
+
+      <ul className="list-disc space-y-1 pl-5 text-xs text-zinc-500">
+        <li>이름·학번·학과가 선명하게 보이는 전체 사진으로 올려주세요.</li>
+        <li>제출 후 운영진이 승인하면 자동으로 전환됩니다.</li>
+        <li>거절되면 사유와 함께 재제출 안내가 전달됩니다.</li>
+      </ul>
 
       <div className="flex gap-3">
         <Link

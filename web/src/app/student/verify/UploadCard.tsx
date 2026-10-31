@@ -1,0 +1,166 @@
+"use client";
+
+import { useRef, useState } from "react";
+
+import { createClient } from "@/lib/supabase/browser";
+
+type Props = {
+  userId: string;
+};
+
+const MAX_MB = 8;
+
+export default function UploadCard({ userId }: Props) {
+  const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selectFile = (f: File) => {
+    setErrorText(null);
+    if (!f.type.startsWith("image/")) {
+      setErrorText("이미지 파일만 업로드할 수 있어요.");
+      return;
+    }
+    if (f.size > MAX_MB * 1024 * 1024) {
+      setErrorText(`파일 크기는 ${MAX_MB}MB 이하여야 합니다.`);
+      return;
+    }
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setFile(f);
+    setPreviewUrl(URL.createObjectURL(f));
+  };
+
+  const clearSelection = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setFile(null);
+    setPreviewUrl(null);
+    if (inputRef.current) inputRef.current.value = "";
+  };
+
+  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) selectFile(f);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f) selectFile(f);
+  };
+
+  const handleUpload = async () => {
+    if (!file) return;
+    setBusy(true);
+    setErrorText(null);
+    try {
+      const supabase = createClient();
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `${userId}/card_${Date.now()}.${ext}`;
+
+      const { error: upErr } = await supabase.storage
+        .from("student-id-cards")
+        .upload(path, file, {
+          contentType: file.type || "image/jpeg",
+          upsert: false,
+        });
+      if (upErr) throw upErr;
+
+      const { error: profErr } = await supabase
+        .from("profiles")
+        .update({
+          student_id_card_url: path,
+          approval_status: "PENDING",
+          rejected_reason: null,
+        })
+        .eq("id", userId);
+      if (profErr) throw profErr;
+
+      alert("학생증 제출이 완료되었습니다. 운영진 승인 대기 중입니다.");
+      window.location.href = "/student";
+    } catch (e) {
+      setErrorText(e instanceof Error ? e.message : "업로드에 실패했어요.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm space-y-4">
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={handleDrop}
+        onClick={() => inputRef.current?.click()}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") inputRef.current?.click();
+        }}
+        className={`flex min-h-[220px] cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 text-center transition ${
+          dragging
+            ? "border-zinc-900 bg-zinc-50"
+            : "border-zinc-300 bg-zinc-50/50 hover:bg-zinc-50"
+        }`}
+      >
+        {previewUrl ? (
+          <img
+            src={previewUrl}
+            alt="학생증 미리보기"
+            className="max-h-56 w-auto rounded-md border border-zinc-200 object-contain"
+          />
+        ) : (
+          <>
+            <div className="text-sm font-medium text-zinc-700">
+              클릭하거나 이미지를 끌어다 놓기
+            </div>
+            <div className="text-xs text-zinc-400">PNG · JPG · 최대 {MAX_MB}MB</div>
+          </>
+        )}
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleInput}
+          className="hidden"
+        />
+      </div>
+
+      {file && (
+        <div className="flex items-center justify-between rounded-lg bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+          <span className="truncate">
+            {file.name} · {(file.size / 1024).toFixed(0)} KB
+          </span>
+          <button
+            type="button"
+            onClick={clearSelection}
+            className="ml-2 text-zinc-500 underline-offset-4 hover:underline"
+          >
+            제거
+          </button>
+        </div>
+      )}
+
+      {errorText && (
+        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+          {errorText}
+        </p>
+      )}
+
+      <button
+        type="button"
+        onClick={handleUpload}
+        disabled={!file || busy}
+        className="w-full rounded-lg bg-zinc-900 py-3 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50"
+      >
+        {busy ? "업로드 중..." : "제출하기"}
+      </button>
+    </section>
+  );
+}
