@@ -80,7 +80,7 @@ export default function UploadCard({ userId }: Props) {
         .eq("id", userId);
       if (profErr) throw profErr;
 
-      alert("제출이 완료되었습니다. 운영진 승인 후 이용 가능합니다.");
+      alert("학생증 제출이 완료되었습니다. 운영진 승인을 기다려주세요.");
       setSubmitted(true);
     } catch (e) {
       setErrorText(e instanceof Error ? e.message : "업로드에 실패했어요.");
@@ -130,16 +130,10 @@ export default function UploadCard({ userId }: Props) {
         }}
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
-        onClick={() => inputRef.current?.click()}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") inputRef.current?.click();
-        }}
-        className={`flex min-h-[220px] cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 text-center transition ${
+        className={`flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-8 text-center transition ${
           dragging
             ? "border-zinc-900 bg-zinc-50"
-            : "border-zinc-300 bg-zinc-50/50 hover:bg-zinc-50"
+            : "border-zinc-300 bg-zinc-50/50"
         }`}
       >
         {previewUrl ? (
@@ -151,8 +145,15 @@ export default function UploadCard({ userId }: Props) {
         ) : (
           <>
             <div className="text-sm font-medium text-zinc-700">
-              클릭하거나 이미지를 끌어다 놓기
+              이미지를 끌어다 놓거나
             </div>
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+            >
+              파일 선택
+            </button>
             <div className="text-xs text-zinc-400">PNG · JPG · 최대 {MAX_MB}MB</div>
           </>
         )}
@@ -170,13 +171,22 @@ export default function UploadCard({ userId }: Props) {
           <span className="truncate">
             {file.name} · {(file.size / 1024).toFixed(0)} KB
           </span>
-          <button
-            type="button"
-            onClick={clearSelection}
-            className="ml-2 text-zinc-500 underline-offset-4 hover:underline"
-          >
-            제거
-          </button>
+          <div className="ml-2 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              className="text-zinc-700 underline-offset-4 hover:underline"
+            >
+              다시 선택
+            </button>
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="text-red-600 underline-offset-4 hover:underline"
+            >
+              삭제
+            </button>
+          </div>
         </div>
       )}
 

@@ -32,7 +32,7 @@ export default async function StudentVerify() {
       <header className="space-y-2 text-center">
         <h1 className="text-2xl font-semibold tracking-tight">학생증을 인증해주세요</h1>
         <p className="text-sm text-zinc-500">
-          운영진 승인을 위해 학생증 사진 또는 재학증명서를 첨부해 주세요.
+          운영진 승인을 위해 학생증 사진(또는 재학증명서)을 첨부해 주세요.
         </p>
       </header>
 
