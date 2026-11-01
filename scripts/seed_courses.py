@@ -330,9 +330,13 @@ def main() -> None:
         print(f"  - {f}")
 
     all_rows: list[dict] = []
+    total_data_rows = 0
+    total_excluded = 0
     for f in files:
         stats: dict = {}
         rows = rows_from_xlsx(f, stats)
+        total_data_rows += stats.get("data_rows", 0)
+        total_excluded += stats.get("excluded_room", 0)
         print(f"\n[parse] {f.name}")
         print(f"  시트 전체 행수:         {stats['total_sheet_rows']}")
         print(f"  데이터 행 (헤더 제외):   {stats['data_rows']}")
@@ -373,7 +377,15 @@ def main() -> None:
     ensure_rooms(url, key, all_codes)
 
     inserted = replace_courses(url, key, deduped)
-    print(f"\n[done] courses 테이블 완전 교체 - {inserted}건 적재 ({len(all_codes)}개 강의실 참조)")
+    print(f"\n{'=' * 50}")
+    print(f"[summary]")
+    print(f"  파싱한 파일 수:          {len(files)}개")
+    print(f"  엑셀 전체 데이터 행:     {total_data_rows}")
+    print(f"  EXCLUDED_ROOMS 제외:     {total_excluded}건")
+    print(f"  dedup 제거:              {dup_count}건")
+    print(f"  최종 courses 적재:       {inserted}건")
+    print(f"  참조 강의실:             {len(all_codes)}개")
+    print(f"{'=' * 50}")
 
 
 if __name__ == "__main__":
