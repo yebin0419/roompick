@@ -18,11 +18,16 @@ export default function ReserveClient({ rooms, courses }: { rooms: Room[]; cours
   const supabase = createClient();
   const params = useSearchParams();
   const presetRoom = params.get("room");
+  const presetDate = params.get("date");
+  const presetStart = params.get("start");
+  const presetEnd = params.get("end");
 
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(
+    () => presetDate ?? new Date().toISOString().slice(0, 10),
+  );
   const [selectedCode, setSelectedCode] = useState<string | null>(presetRoom);
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
+  const [startTime, setStartTime] = useState(presetStart ?? "");
+  const [endTime, setEndTime] = useState(presetEnd ?? "");
   const [purpose, setPurpose] = useState("");
   const [isEvent, setIsEvent] = useState(false);
   const [reservations, setReservations] = useState<any[]>([]);
