@@ -350,11 +350,25 @@ def main() -> None:
         print("\n[err] 파싱된 과목이 없습니다. 엑셀 포맷을 확인해주세요.")
         sys.exit(1)
 
-    all_codes = {r["room_code"] for r in all_rows if r.get("room_code")}
+    # 완전 중복(code, section, room_code, weekday, start_period, end_period) 제거
+    seen: set[tuple] = set()
+    deduped: list[dict] = []
+    for r in all_rows:
+        dedup_key = (r["code"], r.get("section"), r["room_code"], r["weekday"],
+                     r["start_period"], r["end_period"])
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
+        deduped.append(r)
+    dup_count = len(all_rows) - len(deduped)
+    if dup_count:
+        print(f"\n[dedup] 완전 중복 {dup_count}건 제거 (총 {len(all_rows)}→{len(deduped)})")
+
+    all_codes = {r["room_code"] for r in deduped if r.get("room_code")}
     print(f"\n[rooms] courses 가 참조하는 강의실: {len(all_codes)}개")
     ensure_rooms(url, key, all_codes)
 
-    inserted = replace_courses(url, key, all_rows)
+    inserted = replace_courses(url, key, deduped)
     print(f"\n[done] courses 테이블 완전 교체 - {inserted}건 적재 ({len(all_codes)}개 강의실 참조)")
 
 
