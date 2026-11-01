@@ -10,7 +10,10 @@ export default async function AdminDashboard() {
   const [pendingVerify, openReports, upcomingRes, totalRooms] = await Promise.all([
     supabase.from("profiles").select("id", { count: "exact", head: true }).eq("approval_status", "PENDING"),
     supabase.from("reports").select("id", { count: "exact", head: true }).in("status", ["OPEN", "IN_PROGRESS"]),
-    supabase.from("reservations").select("id", { count: "exact", head: true }).gte("end_time", now),
+    supabase.from("reservations")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["RESERVED", "CHECKED_IN"])
+      .gt("end_time", now),
     supabase.from("rooms").select("id", { count: "exact", head: true }),
   ]);
 
