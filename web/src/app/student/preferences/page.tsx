@@ -11,7 +11,7 @@ export default async function PreferencesPage() {
   const [{ data: profile }, { data: reservations }, { data: reports }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("name, email, student_id, approval_status, student_card_url, role")
+      .select("name, email, student_id, department, approval_status, student_card_url, role")
       .eq("id", user!.id).maybeSingle(),
     supabase
       .from("reservations")

@@ -21,6 +21,7 @@ export interface Profile {
   email: string;
   name: string | null;
   student_id: string | null;
+  department: string | null;
   role: Role;
   approval_status: ApprovalStatus;
   student_card_url: string | null;

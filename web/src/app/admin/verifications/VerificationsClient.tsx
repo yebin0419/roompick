@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 
 type P = {
-  id: string; name: string | null; student_id: string | null; email: string;
+  id: string; name: string | null; student_id: string | null;
+  department: string | null; email: string;
   approval_status: string; student_card_url: string | null; rejection_reason: string | null;
   created_at: string;
 };
@@ -50,7 +51,11 @@ export default function VerificationsClient({ items }: { items: P[] }) {
             <div className="flex items-start justify-between">
               <div>
                 <p className="font-semibold text-slate-900">{p.name ?? "(이름 없음)"}</p>
-                <p className="text-xs text-slate-500">{p.student_id} · {p.email}</p>
+                <p className="text-xs text-slate-500">
+                  {p.student_id}
+                  {p.department && <> · {p.department}</>}
+                </p>
+                <p className="text-xs text-slate-400">{p.email}</p>
               </div>
               <span className={`text-xs rounded-full px-2 py-0.5 ${
                 p.approval_status === "REJECTED" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"

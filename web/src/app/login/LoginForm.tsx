@@ -14,6 +14,7 @@ export default function LoginForm() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [studentId, setStudentId] = useState("");
+  const [department, setDepartment] = useState("");
   const [cardFile, setCardFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +40,7 @@ export default function LoginForm() {
         if (!cardFile) throw new Error("학생증 사진을 첨부해주세요.");
         const { data, error } = await supabase.auth.signUp({
           email, password,
-          options: { data: { name, student_id: studentId } },
+          options: { data: { name, student_id: studentId, department } },
         });
         if (error) throw error;
 
@@ -47,7 +48,7 @@ export default function LoginForm() {
           // 세션이 바로 생긴 경우 (이메일 확인 비활성): 업로드까지 진행
           const url = await uploadCard(data.user.id);
           await supabase.from("profiles").update({
-            name, student_id: studentId, student_card_url: url,
+            name, student_id: studentId, department, student_card_url: url,
           }).eq("id", data.user.id);
           router.replace("/student");
           router.refresh();
@@ -98,6 +99,13 @@ export default function LoginForm() {
           <>
             <Field label="이름" value={name} onChange={setName} required />
             <Field label="학번" value={studentId} onChange={setStudentId} required />
+            <Field
+              label="학과"
+              value={department}
+              onChange={setDepartment}
+              placeholder="예: 경영학부, 국제경영학과"
+              required
+            />
           </>
         )}
         <Field label="이메일" type="email" value={email} onChange={setEmail} required />
@@ -154,6 +162,7 @@ function Field(props: {
   onChange: (v: string) => void;
   type?: string;
   required?: boolean;
+  placeholder?: string;
 }) {
   return (
     <label className="block">
@@ -163,6 +172,7 @@ function Field(props: {
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
         required={props.required}
+        placeholder={props.placeholder}
         className="w-full rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none px-3.5 py-2.5 text-sm"
       />
     </label>

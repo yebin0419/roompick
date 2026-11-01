@@ -7,6 +7,7 @@ import LogoutButton from "@/components/LogoutButton";
 
 type P = {
   name: string | null; email: string; student_id: string | null;
+  department: string | null;
   approval_status: string; student_card_url: string | null; role: string;
 };
 
@@ -41,12 +42,14 @@ export default function PreferencesClient({
   const supabase = createClient();
   const [name, setName] = useState(profile.name ?? "");
   const [studentId, setStudentId] = useState(profile.student_id ?? "");
+  const [department, setDepartment] = useState(profile.department ?? "");
   const [saving, setSaving] = useState(false);
   const [info, setInfo] = useState<string | null>(null);
 
   async function save() {
     setSaving(true); setInfo(null);
-    const { error } = await supabase.from("profiles").update({ name, student_id: studentId })
+    const { error } = await supabase.from("profiles")
+      .update({ name, student_id: studentId, department })
       .eq("email", profile.email);
     setSaving(false);
     setInfo(error ? error.message : "저장되었습니다.");
@@ -67,6 +70,7 @@ export default function PreferencesClient({
         </div>
         <Field label="이름" value={name} onChange={setName} />
         <Field label="학번" value={studentId} onChange={setStudentId} />
+        <Field label="학과" value={department} onChange={setDepartment} />
         <Field label="이메일" value={profile.email} readOnly />
 
         {info && (
