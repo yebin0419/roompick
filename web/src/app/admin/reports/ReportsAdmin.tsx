@@ -7,8 +7,8 @@ import { createClient } from "@/lib/supabase/browser";
 type Rp = {
   id: string; category: string; content: string; status: string;
   photo_url: string | null; created_at: string;
-  reporter: { id: string; name: string | null; student_id: string | null } | null;
-  room: { code: string } | null;
+  reporter: { id: string; name: string | null; student_id: string | null; department: string | null } | null;
+  room: { code: string; building: string | null; floor: string | null } | null;
 };
 
 const CAT: Record<string, string> = {
@@ -57,19 +57,33 @@ export default function ReportsAdmin({ items }: { items: Rp[] }) {
         </div>
       </header>
 
+      <p className="text-xs text-slate-400">전체 {items.length}건 · 현재 탭 {list.length}건</p>
+
       <ul className="grid gap-3 lg:grid-cols-2">
         {list.map((r) => (
           <li key={r.id} className="rounded-2xl bg-white border border-slate-200 p-4">
             <div className="flex items-start justify-between">
               <div>
                 <p className="font-semibold text-slate-900">
-                  {r.room?.code ?? "-"} · {CAT[r.category] ?? r.category}
+                  {r.room?.code ?? "(강의실 미지정)"}
+                  {r.room?.building && (
+                    <span className="ml-1 text-xs font-normal text-slate-500">
+                      · {r.room.building}동 {r.room.floor}
+                    </span>
+                  )}
+                  <span className="ml-2 text-sm font-normal text-slate-600">
+                    · {CAT[r.category] ?? r.category}
+                  </span>
                 </p>
-                <p className="text-xs text-slate-500">
-                  {r.reporter?.name} ({r.reporter?.student_id}) · {new Date(r.created_at).toLocaleString("ko-KR")}
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {r.reporter?.name ?? "(이름 없음)"}
+                  {r.reporter?.student_id && ` (${r.reporter.student_id})`}
+                  {r.reporter?.department && ` · ${r.reporter.department}`}
+                  {" · "}
+                  {new Date(r.created_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}
                 </p>
               </div>
-              <span className="text-xs rounded-full bg-slate-100 px-2 py-0.5">{r.status}</span>
+              <ReportStatusChip status={r.status} />
             </div>
             <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap">{r.content}</p>
             {r.photo_url && (
@@ -99,9 +113,28 @@ export default function ReportsAdmin({ items }: { items: Rp[] }) {
           </li>
         ))}
         {list.length === 0 && (
-          <p className="text-sm text-slate-500">조건에 맞는 신고가 없습니다.</p>
+          <p className="text-sm text-slate-500 lg:col-span-2 py-6 text-center">
+            조건에 맞는 신고가 없습니다.
+          </p>
         )}
       </ul>
     </div>
+  );
+}
+
+function ReportStatusChip({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    OPEN: "bg-amber-50 text-amber-700",
+    IN_PROGRESS: "bg-blue-50 text-blue-700",
+    RESOLVED: "bg-emerald-50 text-emerald-700",
+    DISMISSED: "bg-slate-100 text-slate-500",
+  };
+  const label: Record<string, string> = {
+    OPEN: "접수", IN_PROGRESS: "처리중", RESOLVED: "완료", DISMISSED: "반려",
+  };
+  return (
+    <span className={`text-xs rounded-full px-2 py-0.5 ${map[status] ?? "bg-slate-100"}`}>
+      {label[status] ?? status}
+    </span>
   );
 }
