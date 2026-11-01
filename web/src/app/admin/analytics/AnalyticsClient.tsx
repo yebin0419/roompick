@@ -46,10 +46,11 @@ export default function AnalyticsClient({
     setSaving(false); router.refresh();
   }
 
-  const topRooms = [...rooms]
+  // 전체 활성 강의실(N-13 + N-14 포함)을 사용 시간 내림차순 → 미사용은 코드 오름차순
+  const allRooms = [...rooms]
     .map((r) => ({ r, s: stats.byRoom.get(r.id)! }))
-    .sort((a, b) => b.s.hours - a.s.hours)
-    .slice(0, 10);
+    .sort((a, b) => b.s.hours - a.s.hours || a.r.code.localeCompare(b.r.code));
+  const topRooms = allRooms;
 
   const underused = [...rooms]
     .map((r) => ({ r, s: stats.byRoom.get(r.id)! }))
@@ -108,18 +109,24 @@ export default function AnalyticsClient({
       </section>
 
       <section className="rounded-2xl bg-white border border-slate-200 p-5">
-        <h2 className="font-semibold text-slate-900">사용 상위 강의실</h2>
-        <ul className="mt-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-slate-900">사용 상위 강의실</h2>
+          <span className="text-xs text-slate-400">전체 {topRooms.length}개</span>
+        </div>
+        <ul className="mt-3 space-y-2 max-h-[480px] overflow-y-auto pr-1">
           {topRooms.map(({ r, s }) => (
             <li key={r.id} className="flex items-center gap-3">
-              <span className="w-24 text-sm font-medium text-slate-900">{r.code}</span>
+              <span className="w-28 text-sm font-medium text-slate-900">
+                {r.code}
+                <span className="ml-1 text-xs font-normal text-slate-400">{r.building}</span>
+              </span>
               <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-brand-500"
                   style={{ width: `${Math.min(100, (s.hours / (topRooms[0]?.s.hours || 1)) * 100)}%` }}
                 />
               </div>
-              <span className="w-20 text-right text-xs text-slate-500 tabular-nums">
+              <span className="w-24 text-right text-xs text-slate-500 tabular-nums">
                 {s.hours.toFixed(1)}h · 노쇼 {(stats.noShowRate(s) * 100).toFixed(0)}%
               </span>
             </li>
