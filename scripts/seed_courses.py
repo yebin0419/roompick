@@ -26,6 +26,9 @@ WEEKDAYS = {"일": 0, "월": 1, "화": 2, "수": 3, "목": 4, "금": 5, "토": 6
 # "A1" 패턴 (압축교시) 매핑 — 교양/실험 공통. 임시: A1~A4를 1~4교시로 매핑.
 A_PERIOD_RE = re.compile(r"^A(\d+)$")
 
+# 경영대 범위 외 강의실 — 과목이 xlsx에 남아 있어도 적재 대상에서 제외
+EXCLUDED_ROOMS = {"N14-703", "N14-704"}
+
 
 def load_env() -> dict[str, str]:
     env = {k: v for k, v in os.environ.items() if v}
@@ -94,6 +97,8 @@ def rows_from_xlsx(path: Path) -> list[dict]:
         schedule_raw = str(raw[11] or "").strip()
         schedules = parse_schedule(schedule_raw)
         for s in schedules:
+            if s["room_code"] in EXCLUDED_ROOMS:
+                continue
             rows.append({
                 "code": code,
                 "name": name,
