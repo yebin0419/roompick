@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { computeBusyIntervals } from "@/lib/availability";
 import { freeSlotsForDay } from "@/lib/periods";
+import LiveClock from "@/components/LiveClock";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +21,11 @@ export default async function StudentHome() {
       .limit(5),
   ]);
 
+  // 서버 가용성 계산용 — KST(Asia/Seoul) 기준 현재 HH:mm
   const today = new Date();
-  const nowHHMM = `${String(today.getHours()).padStart(2, "0")}:${String(today.getMinutes()).padStart(2, "0")}`;
+  const nowHHMM = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hour12: false,
+  }).format(today);
 
   const { data: todaysRes } = await supabase
     .from("reservations")
@@ -57,7 +61,7 @@ export default async function StudentHome() {
           지금 비어 있는 강의실 {freeNow.length}개
         </h1>
         <p className="mt-1 text-sm opacity-90">
-          {new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" })} · {nowHHMM}
+          <LiveClock />
         </p>
         <Link
           href="/student/reserve"
