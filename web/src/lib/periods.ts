@@ -1,5 +1,5 @@
 export const OPERATING_START_HOUR = 8;
-export const OPERATING_END_HOUR = 21;
+export const OPERATING_END_HOUR = 22;
 
 export const PERIODS: { period: number; start: string; end: string }[] = [
   { period: 1, start: "09:00", end: "10:00" },
@@ -11,6 +11,10 @@ export const PERIODS: { period: number; start: string; end: string }[] = [
   { period: 7, start: "15:00", end: "16:00" },
   { period: 8, start: "16:00", end: "17:00" },
   { period: 9, start: "17:00", end: "18:00" },
+  { period: 10, start: "18:00", end: "19:00" },
+  { period: 11, start: "19:00", end: "20:00" },
+  { period: 12, start: "20:00", end: "21:00" },
+  { period: 13, start: "21:00", end: "22:00" },
 ];
 
 export const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
