@@ -20,6 +20,7 @@ export default async function StudentHome() {
     await Promise.all([
       supabase.from("rooms")
         .select("id, code, building, floor, room_type, capacity")
+        .eq("is_available", true)
         .order("code"),
       supabase.from("courses").select("room_code, weekday, start_period, end_period"),
       supabase.from("reservations")

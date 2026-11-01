@@ -14,7 +14,7 @@ export default async function AdminDashboard() {
       .select("id", { count: "exact", head: true })
       .in("status", ["RESERVED", "CHECKED_IN"])
       .gt("end_time", now),
-    supabase.from("rooms").select("id", { count: "exact", head: true }),
+    supabase.from("rooms").select("id", { count: "exact", head: true }).eq("is_available", true),
   ]);
 
   const { data: recent } = await supabase

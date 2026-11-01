@@ -56,6 +56,18 @@ export default function AnalyticsClient({
     .sort((a, b) => a.s.hours - b.s.hours)
     .slice(0, 5);
 
+  const byBuilding = useMemo(() => {
+    const m = new Map<string, { count: number; hours: number; total: number; noShow: number }>();
+    for (const r of rooms) {
+      if (!m.has(r.building)) m.set(r.building, { count: 0, hours: 0, total: 0, noShow: 0 });
+      const b = m.get(r.building)!;
+      b.count++;
+      const s = stats.byRoom.get(r.id);
+      if (s) { b.hours += s.hours; b.total += s.total; b.noShow += s.noShow; }
+    }
+    return [...m.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [rooms, stats.byRoom]);
+
   const reportCount: Record<string, number> = {};
   for (const r of reports) reportCount[r.category] = (reportCount[r.category] ?? 0) + 1;
 
@@ -68,10 +80,31 @@ export default function AnalyticsClient({
         </p>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-4">
         <Metric label="총 예약" value={stats.totalRes.toString()} />
         <Metric label="노쇼" value={stats.totalNoShow.toString()} />
         <Metric label="전체 노쇼율" value={`${(stats.overallNoShow * 100).toFixed(1)}%`} />
+        <Metric label="등록 강의실" value={rooms.length.toString()} />
+      </section>
+
+      <section className="rounded-2xl bg-white border border-slate-200 p-5">
+        <h2 className="font-semibold text-slate-900">건물별 집계</h2>
+        <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+          {byBuilding.map(([bldg, b]) => (
+            <li key={bldg} className="rounded-xl border border-slate-100 p-3">
+              <div className="flex items-center justify-between">
+                <p className="font-medium text-slate-900">{bldg}동</p>
+                <span className="text-xs text-slate-400">강의실 {b.count}개</span>
+              </div>
+              <p className="mt-1 text-xs text-slate-500 tabular-nums">
+                30일 {b.hours.toFixed(1)}h · 예약 {b.total}건 · 노쇼 {b.noShow}
+              </p>
+            </li>
+          ))}
+          {byBuilding.length === 0 && (
+            <p className="text-sm text-slate-500">강의실 데이터가 없습니다.</p>
+          )}
+        </ul>
       </section>
 
       <section className="rounded-2xl bg-white border border-slate-200 p-5">
