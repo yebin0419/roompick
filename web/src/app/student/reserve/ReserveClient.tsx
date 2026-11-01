@@ -76,8 +76,7 @@ export default function ReserveClient({ rooms, courses }: { rooms: Room[]; cours
   }, [date, supabase]);
 
   const busyMap = useMemo(() => {
-    const d = new Date(date + "T00:00:00");
-    return computeBusyIntervals({ date: d, rooms, courses, reservations });
+    return computeBusyIntervals({ dateYMD: date, rooms, courses, reservations });
   }, [date, rooms, courses, reservations]);
 
   const freeByRoom = useMemo(() => {

@@ -81,15 +81,9 @@ export default function PickSection({
 
   const freeRooms = useMemo(() => {
     if (!rangeValid) return [];
-    const d = new Date(date + "T00:00:00");
-    const sameDayRes = reservations.filter((r) => {
-      const rd = new Date(r.start_time);
-      return rd.getFullYear() === d.getFullYear()
-        && rd.getMonth() === d.getMonth()
-        && rd.getDate() === d.getDate();
-    });
+    // computeBusyIntervals 가 KST YMD 기준으로 요일/same-day 를 자체 계산
     const busyMap = computeBusyIntervals({
-      date: d, rooms, courses, reservations: sameDayRes,
+      dateYMD: date, rooms, courses, reservations,
     });
     return rooms
       .filter((r) => building === "ALL" || r.building === building)
