@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { computeBusyIntervals } from "@/lib/availability";
-import { PERIODS } from "@/lib/periods";
 
 type Room = {
   id: string; code: string; building: string;
@@ -12,7 +11,14 @@ type Room = {
 type Course = { room_code: string; weekday: number; start_period: number; end_period: number };
 type Reservation = { room_id: string; start_time: string; end_time: string };
 
-const SLOTS = PERIODS.map((p) => ({ start: p.start, end: p.end }));
+// 09:00 ~ 18:00, 30분 단위
+const HHMM_SLOTS: string[] = (() => {
+  const out: string[] = [];
+  for (let m = 9 * 60; m <= 18 * 60; m += 30) {
+    out.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+  }
+  return out;
+})();
 
 function todayKST(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -26,13 +32,31 @@ function currentHHMM(): string {
   }).format(new Date());
 }
 
-function nearestSlot(hhmm: string): string {
-  const found = SLOTS.find((s) => s.start <= hhmm && hhmm < s.end);
-  if (found) return `${found.start}-${found.end}`;
-  // 운영시간 전/후면 첫/마지막 슬롯
-  return hhmm < SLOTS[0].start
-    ? `${SLOTS[0].start}-${SLOTS[0].end}`
-    : `${SLOTS.at(-1)!.start}-${SLOTS.at(-1)!.end}`;
+function toMin(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function fromMin(min: number): string {
+  const h = Math.floor(min / 60), m = min % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+/** 현재 시각을 30분 단위로 올림. 운영시간 밖이면 09:00. 운영 종료 직전이면 17:30. */
+function defaultStart(): string {
+  const now = toMin(currentHHMM());
+  const first = toMin(HHMM_SLOTS[0]);
+  const lastStart = toMin(HHMM_SLOTS[HHMM_SLOTS.length - 2]); // 17:30
+  if (now <= first) return HHMM_SLOTS[0];
+  if (now >= lastStart) return fromMin(lastStart);
+  const rounded = Math.ceil(now / 30) * 30;
+  return fromMin(Math.min(rounded, lastStart));
+}
+
+function defaultEnd(start: string): string {
+  const target = toMin(start) + 60;
+  const last = toMin(HHMM_SLOTS[HHMM_SLOTS.length - 1]); // 18:00
+  return fromMin(Math.min(target, last));
 }
 
 export default function PickSection({
@@ -41,12 +65,20 @@ export default function PickSection({
   rooms: Room[]; courses: Course[]; reservations: Reservation[];
 }) {
   const [date, setDate] = useState(() => todayKST());
-  const [slot, setSlot] = useState(() => nearestSlot(currentHHMM()));
+  const [slotStart, setSlotStart] = useState(() => defaultStart());
+  const [slotEnd, setSlotEnd] = useState(() => defaultEnd(defaultStart()));
   const [building, setBuilding] = useState<"ALL" | "N-13" | "N-14">("ALL");
 
-  const [slotStart, slotEnd] = slot.split("-");
+  // 시작이 바뀌면 종료가 더 이르면 자동 보정
+  function handleStartChange(v: string) {
+    setSlotStart(v);
+    if (toMin(slotEnd) <= toMin(v)) setSlotEnd(defaultEnd(v));
+  }
+
+  const rangeValid = toMin(slotEnd) > toMin(slotStart);
 
   const freeRooms = useMemo(() => {
+    if (!rangeValid) return [];
     const d = new Date(date + "T00:00:00");
     const sameDayRes = reservations.filter((r) => {
       const rd = new Date(r.start_time);
@@ -63,7 +95,9 @@ export default function PickSection({
         const busy = busyMap.get(r.id) ?? [];
         return !busy.some((b) => b.start < slotEnd && slotStart < b.end);
       });
-  }, [date, slotStart, slotEnd, building, rooms, courses, reservations]);
+  }, [date, slotStart, slotEnd, building, rooms, courses, reservations, rangeValid]);
+
+  const endOptions = HHMM_SLOTS.filter((t) => toMin(t) > toMin(slotStart));
 
   return (
     <section>
@@ -72,21 +106,30 @@ export default function PickSection({
         <Link href="/student/reserve" className="text-xs text-brand-500">예약 페이지 →</Link>
       </div>
 
-      <div className="mt-3 rounded-2xl bg-white border border-slate-200 p-3 flex flex-wrap gap-2">
+      <div className="mt-3 rounded-2xl bg-white border border-slate-200 p-3 flex flex-wrap items-center gap-2">
         <input
           type="date" value={date} onChange={(e) => setDate(e.target.value)}
           className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
         />
-        <select
-          value={slot} onChange={(e) => setSlot(e.target.value)}
-          className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-        >
-          {SLOTS.map((s, i) => (
-            <option key={s.start} value={`${s.start}-${s.end}`}>
-              {i + 1}교시 · {s.start}~{s.end}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-1">
+          <select
+            value={slotStart} onChange={(e) => handleStartChange(e.target.value)}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          >
+            {HHMM_SLOTS.slice(0, -1).map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+          <span className="text-slate-400 text-sm">~</span>
+          <select
+            value={slotEnd} onChange={(e) => setSlotEnd(e.target.value)}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          >
+            {endOptions.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        </div>
         <div className="flex rounded-lg border border-slate-200 text-sm overflow-hidden">
           {(["ALL", "N-13", "N-14"] as const).map((b) => (
             <button
@@ -100,6 +143,10 @@ export default function PickSection({
           ))}
         </div>
       </div>
+
+      {!rangeValid && (
+        <p className="mt-2 text-xs text-red-600">종료 시간이 시작 시간보다 늦어야 합니다.</p>
+      )}
 
       <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
         <span>선택한 시간대 · 비어 있는 강의실 <b className="text-slate-900">{freeRooms.length}</b>개</span>
