@@ -34,7 +34,7 @@ export default function ReservationsAdmin({ items }: { items: R[] }) {
 
   return (
     <div className="space-y-4">
-      <header className="flex items-center justify-between">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">예약 관리</h1>
           <p className="mt-1 text-sm text-slate-500">
@@ -44,15 +44,15 @@ export default function ReservationsAdmin({ items }: { items: R[] }) {
         <div className="flex rounded-xl border border-slate-200 bg-white text-sm">
           {(["ALL", "ACTIVE", "EVENT"] as const).map((f) => (
             <button key={f} onClick={() => setFilter(f)}
-              className={`px-3 py-2 ${filter === f ? "font-semibold text-slate-900" : "text-slate-500"}`}>
+              className={`min-h-[44px] px-3 py-2 ${filter === f ? "font-semibold text-slate-900" : "text-slate-500"}`}>
               {f === "ALL" ? "전체" : f === "ACTIVE" ? "진행중" : "행사"}
             </button>
           ))}
         </div>
       </header>
 
-      <div className="rounded-2xl bg-white border border-slate-200 overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="rounded-2xl bg-white border border-slate-200 scroll-x">
+        <table className="w-full min-w-[720px] text-sm">
           <thead className="text-left text-slate-500 bg-slate-50">
             <tr>
               <th className="py-2.5 px-3 font-medium">학생</th>

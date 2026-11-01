@@ -244,7 +244,7 @@ export default function ReserveClient({ rooms, courses }: { rooms: Room[]; cours
                     setEndTime("");
                   }
                 }}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                className="w-full min-h-[44px] rounded-xl border border-slate-200 px-3 py-2 text-sm"
               >
                 <option value="">선택</option>
                 {HHMM_SLOTS.map((t) => {
@@ -284,7 +284,7 @@ export default function ReserveClient({ rooms, courses }: { rooms: Room[]; cours
             <input
               type="text" value={purpose} onChange={(e) => setPurpose(e.target.value)}
               placeholder="팀플 / 스터디 / 행사 등"
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+              className="w-full min-h-[44px] rounded-xl border border-slate-200 px-3 py-2 text-sm"
             />
           </label>
           <label className="flex items-center gap-2 text-sm">

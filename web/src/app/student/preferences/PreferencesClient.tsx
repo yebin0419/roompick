@@ -169,7 +169,7 @@ function Field(props: {
       <input
         type="text" value={props.value} readOnly={props.readOnly}
         onChange={(e) => props.onChange?.(e.target.value)}
-        className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm bg-white read-only:bg-slate-50"
+        className="w-full min-h-[44px] rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm bg-white read-only:bg-slate-50"
       />
     </label>
   );

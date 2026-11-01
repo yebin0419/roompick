@@ -44,14 +44,14 @@ export default function AdminLoginForm() {
           <span className="block text-xs font-medium text-slate-600 mb-1.5">이메일</span>
           <input
             type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
-            className="w-full rounded-xl border border-slate-200 focus:border-slate-700 focus:ring-2 focus:ring-slate-700/10 outline-none px-3.5 py-2.5 text-sm"
+            className="w-full min-h-[44px] rounded-xl border border-slate-200 focus:border-slate-700 focus:ring-2 focus:ring-slate-700/10 outline-none px-3.5 py-2.5 text-sm"
           />
         </label>
         <label className="block">
           <span className="block text-xs font-medium text-slate-600 mb-1.5">비밀번호</span>
           <input
             type="password" value={password} onChange={(e) => setPassword(e.target.value)} required
-            className="w-full rounded-xl border border-slate-200 focus:border-slate-700 focus:ring-2 focus:ring-slate-700/10 outline-none px-3.5 py-2.5 text-sm"
+            className="w-full min-h-[44px] rounded-xl border border-slate-200 focus:border-slate-700 focus:ring-2 focus:ring-slate-700/10 outline-none px-3.5 py-2.5 text-sm"
           />
         </label>
         {error && (

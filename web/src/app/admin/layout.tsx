@@ -27,10 +27,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/admin" className="font-bold text-slate-900">
-            룸픽 <span className="text-slate-400 font-normal">· 관리자</span>
+      <header className="bg-white border-b border-slate-200 pt-safe">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between">
+          <Link href="/admin" className="font-bold text-slate-900 flex items-center h-full px-1">
+            룸픽 <span className="ml-1 text-slate-400 font-normal">· 관리자</span>
           </Link>
           <div className="flex items-center gap-3 text-sm">
             <span className="text-slate-500 hidden sm:inline">
@@ -39,13 +39,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <LogoutButton />
           </div>
         </div>
-        <div className="max-w-6xl mx-auto px-4">
-          <nav className="flex gap-1 overflow-x-auto">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4">
+          <nav className="flex gap-1 overflow-x-auto scroll-x -mx-1 px-1">
             {NAV.map((n) => (
               <Link
                 key={n.href}
                 href={n.href}
-                className="py-2.5 px-3 text-sm font-medium text-slate-600 hover:text-slate-900 whitespace-nowrap"
+                className="min-h-[44px] py-2.5 px-3 flex items-center text-sm font-medium text-slate-600 hover:text-slate-900 whitespace-nowrap"
               >
                 {n.label}
               </Link>
@@ -53,7 +53,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </nav>
         </div>
       </header>
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-6">{children}</main>
+      <main className="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-4 py-4 sm:py-6 pb-safe">{children}</main>
     </div>
   );
 }

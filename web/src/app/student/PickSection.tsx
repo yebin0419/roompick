@@ -105,12 +105,12 @@ export default function PickSection({
       <div className="mt-3 rounded-2xl bg-white border border-slate-200 p-3 flex flex-wrap items-center gap-2">
         <input
           type="date" value={date} onChange={(e) => setDate(e.target.value)}
-          className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          className="min-h-[44px] rounded-lg border border-slate-200 px-3 py-2 text-sm"
         />
         <div className="flex items-center gap-1">
           <select
             value={slotStart} onChange={(e) => handleStartChange(e.target.value)}
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            className="min-h-[44px] rounded-lg border border-slate-200 px-3 py-2 text-sm"
           >
             {HHMM_SLOTS.slice(0, -1).map((t) => (
               <option key={t} value={t}>{t}</option>
@@ -119,7 +119,7 @@ export default function PickSection({
           <span className="text-slate-400 text-sm">~</span>
           <select
             value={slotEnd} onChange={(e) => setSlotEnd(e.target.value)}
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            className="min-h-[44px] rounded-lg border border-slate-200 px-3 py-2 text-sm"
           >
             {endOptions.map((t) => (
               <option key={t} value={t}>{t}</option>
@@ -130,7 +130,7 @@ export default function PickSection({
           {(["ALL", "N-13", "N-14"] as const).map((b) => (
             <button
               key={b} type="button" onClick={() => setBuilding(b)}
-              className={`px-3 py-2 ${
+              className={`min-h-[44px] px-3 py-2 ${
                 building === b ? "bg-brand-500 text-white" : "bg-white text-slate-600 hover:bg-slate-50"
               }`}
             >

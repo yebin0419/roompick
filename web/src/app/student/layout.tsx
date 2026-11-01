@@ -24,9 +24,9 @@ export default async function StudentLayout({ children }: { children: React.Reac
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="sticky top-0 z-10 bg-white border-b border-slate-200">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/student" className="font-bold text-brand-500">룸픽</Link>
+      <header className="sticky top-0 z-10 bg-white border-b border-slate-200 pt-safe">
+        <div className="max-w-5xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between">
+          <Link href="/student" className="font-bold text-brand-500 flex items-center h-full px-1">룸픽</Link>
           <div className="flex items-center gap-3 text-sm">
             <span className="text-slate-500 hidden sm:inline">
               {profile?.name ?? user.email}
@@ -36,17 +36,17 @@ export default async function StudentLayout({ children }: { children: React.Reac
         </div>
       </header>
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6 pb-24">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-4 py-4 sm:py-6 pb-24">
         {children}
       </main>
 
-      <nav className="fixed bottom-0 inset-x-0 bg-white border-t border-slate-200">
+      <nav className="fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 pb-safe z-10">
         <div className="max-w-5xl mx-auto grid grid-cols-6">
           {TABS.map((t) => (
             <Link
               key={t.href}
               href={t.href}
-              className="py-3 text-center text-xs font-medium text-slate-600 hover:text-brand-500"
+              className="min-h-[56px] py-2 flex items-center justify-center text-center text-xs font-medium text-slate-600 hover:text-brand-500 active:bg-slate-50"
             >
               {t.label}
             </Link>

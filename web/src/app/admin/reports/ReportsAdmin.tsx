@@ -40,7 +40,7 @@ export default function ReportsAdmin({ items }: { items: Rp[] }) {
 
   return (
     <div className="space-y-4">
-      <header className="flex items-center justify-between">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">신고 처리</h1>
           <p className="mt-1 text-sm text-slate-500">
@@ -50,7 +50,7 @@ export default function ReportsAdmin({ items }: { items: Rp[] }) {
         <div className="flex rounded-xl border border-slate-200 bg-white text-sm">
           {(["OPEN", "RESOLVED", "ALL"] as const).map((f) => (
             <button key={f} onClick={() => setFilter(f)}
-              className={`px-3 py-2 ${filter === f ? "font-semibold text-slate-900" : "text-slate-500"}`}>
+              className={`min-h-[44px] px-3 py-2 ${filter === f ? "font-semibold text-slate-900" : "text-slate-500"}`}>
               {f === "OPEN" ? "진행" : f === "RESOLVED" ? "완료" : "전체"}
             </button>
           ))}

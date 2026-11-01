@@ -173,7 +173,7 @@ function Field(props: {
         onChange={(e) => props.onChange(e.target.value)}
         required={props.required}
         placeholder={props.placeholder}
-        className="w-full rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none px-3.5 py-2.5 text-sm"
+        className="w-full min-h-[44px] rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none px-3.5 py-2.5 text-sm"
       />
     </label>
   );

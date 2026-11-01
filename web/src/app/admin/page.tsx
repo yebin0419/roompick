@@ -39,9 +39,10 @@ export default async function AdminDashboard() {
         <Stat title="등록 강의실" value={totalRooms.count ?? 0} href="/admin/analytics" />
       </section>
 
-      <section className="rounded-2xl bg-white border border-slate-200 p-5">
+      <section className="rounded-2xl bg-white border border-slate-200 p-4 sm:p-5">
         <h2 className="font-semibold text-slate-900 mb-3">최근 예약</h2>
-        <table className="w-full text-sm">
+        <div className="scroll-x -mx-4 sm:mx-0 px-4 sm:px-0">
+        <table className="w-full min-w-[560px] text-sm">
           <thead className="text-left text-slate-500">
             <tr>
               <th className="py-2 pr-3 font-medium">학생</th>
@@ -73,6 +74,7 @@ export default async function AdminDashboard() {
             )}
           </tbody>
         </table>
+        </div>
       </section>
     </div>
   );
