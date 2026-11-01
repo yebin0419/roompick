@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
+import LogoutButton from "@/components/LogoutButton";
 
 type P = {
   name: string | null; email: string; student_id: string | null;
@@ -63,11 +64,7 @@ export default function PreferencesClient({ profile }: { profile: P }) {
         </section>
       )}
 
-      <form action="/auth/signout" method="post">
-        <button className="w-full rounded-xl bg-white border border-slate-200 text-slate-700 py-3 font-medium">
-          로그아웃
-        </button>
-      </form>
+      <LogoutButton className="w-full rounded-xl bg-white border border-slate-200 text-slate-700 py-3 font-medium hover:bg-slate-50" />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import LogoutButton from "@/components/LogoutButton";
 
 const NAV = [
   { href: "/admin", label: "대시보드" },
@@ -35,11 +36,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <span className="text-slate-500 hidden sm:inline">
               {profile.name ?? user.email} · {profile.role === "ADMIN" ? "행정실" : "운영진"}
             </span>
-            <form action="/auth/signout" method="post">
-              <button className="text-xs text-slate-500 hover:text-slate-800 underline underline-offset-4">
-                로그아웃
-              </button>
-            </form>
+            <LogoutButton />
           </div>
         </div>
         <div className="max-w-6xl mx-auto px-4">

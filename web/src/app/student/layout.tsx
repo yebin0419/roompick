@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import LogoutButton from "@/components/LogoutButton";
 
 const TABS = [
   { href: "/student", label: "홈" },
@@ -30,11 +31,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
             <span className="text-slate-500 hidden sm:inline">
               {profile?.name ?? user.email}
             </span>
-            <form action="/auth/signout" method="post">
-              <button className="text-xs text-slate-500 hover:text-slate-800 underline underline-offset-4">
-                로그아웃
-              </button>
-            </form>
+            <LogoutButton />
           </div>
         </div>
       </header>
