@@ -92,7 +92,7 @@ export default async function StudentHome() {
                 href={`/student/reserve?room=${encodeURIComponent(r.code)}`}
                 className="mt-3 block text-center text-sm rounded-lg bg-brand-500 hover:bg-brand-600 text-white py-2"
               >
-                1분 예약
+                바로 예약
               </Link>
             </li>
           ))}

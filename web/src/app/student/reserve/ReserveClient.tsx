@@ -205,7 +205,7 @@ export default function ReserveClient({ rooms, courses }: { rooms: Room[]; cours
             onClick={submit} disabled={loading}
             className="w-full rounded-xl bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-medium py-3"
           >
-            {loading ? "요청 중..." : isEvent ? "행사 예약 신청" : "1분 예약"}
+            {loading ? "요청 중..." : isEvent ? "행사 예약 신청" : "바로 예약"}
           </button>
         </section>
       )}
