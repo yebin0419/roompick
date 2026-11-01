@@ -13,6 +13,30 @@ type Room = {
 
 type Course = { room_code: string; weekday: number; start_period: number; end_period: number };
 
+// 09:00 ~ 18:00, 30분 단위
+const HHMM_SLOTS: string[] = (() => {
+  const out: string[] = [];
+  for (let m = 9 * 60; m <= 18 * 60; m += 30) {
+    out.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+  }
+  return out;
+})();
+
+function toMin(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+function fromMin(min: number): string {
+  const h = Math.floor(min / 60), m = min % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+type Interval = { start: string; end: string };
+
+function overlapsAny(start: string, end: string, busy: Interval[]): boolean {
+  return busy.some((b) => start < b.end && b.start < end);
+}
+
 export default function ReserveClient({ rooms, courses }: { rooms: Room[]; courses: Course[] }) {
   const router = useRouter();
   const supabase = createClient();
@@ -55,18 +79,50 @@ export default function ReserveClient({ rooms, courses }: { rooms: Room[]; cours
   }, [date, rooms, courses, reservations]);
 
   const freeByRoom = useMemo(() => {
-    const m = new Map<string, { start: string; end: string }[]>();
+    const m = new Map<string, Interval[]>();
     for (const r of rooms) m.set(r.id, freeSlotsForDay(busyMap.get(r.id) ?? []));
     return m;
   }, [rooms, busyMap]);
 
   const selected = rooms.find((r) => r.code === selectedCode) ?? null;
+  const busyForRoom: Interval[] = selected ? busyMap.get(selected.id) ?? [] : [];
+
+  // 날짜/강의실 변경 시 더 이상 유효하지 않은 시간은 초기화
+  useEffect(() => {
+    if (!selected || !startTime) return;
+    const next = fromMin(toMin(startTime) + 30);
+    if (overlapsAny(startTime, next, busyForRoom)) {
+      setStartTime("");
+      setEndTime("");
+    } else if (endTime && overlapsAny(startTime, endTime, busyForRoom)) {
+      setEndTime("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, selectedCode, busyForRoom.length]);
+
+  function isStartDisabled(t: string): boolean {
+    if (!selected) return false;
+    if (t === "18:00") return true;
+    const next = fromMin(toMin(t) + 30);
+    return overlapsAny(t, next, busyForRoom);
+  }
+  function isEndDisabled(e: string): boolean {
+    if (!startTime) return true;
+    if (toMin(e) <= toMin(startTime)) return true;
+    return overlapsAny(startTime, e, busyForRoom);
+  }
 
   async function submit() {
     setError(null); setInfo(null);
     if (!selected) { setError("강의실을 선택하세요."); return; }
-    if (!startTime || !endTime) { setError("시작/종료 시간을 입력하세요."); return; }
-    if (startTime >= endTime) { setError("시작 시간이 종료보다 빨라야 합니다."); return; }
+    if (!startTime || !endTime) { setError("시작/종료 시간을 선택하세요."); return; }
+    if (toMin(startTime) >= toMin(endTime)) {
+      setError("종료 시간이 시작 시간보다 늦어야 합니다."); return;
+    }
+    if (overlapsAny(startTime, endTime, busyForRoom)) {
+      setError("선택한 시간대에 다른 예약 또는 수업이 있습니다. 다시 선택해주세요.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -79,13 +135,14 @@ export default function ReserveClient({ rooms, courses }: { rooms: Room[]; cours
         room_id: selected.id,
         start_time: start, end_time: end,
         purpose, is_event: isEvent,
-        status: isEvent ? "RESERVED" : "RESERVED",
+        status: "RESERVED",
       });
       if (error) throw error;
       setInfo(isEvent
         ? "행사 예약이 접수되었습니다. 운영진 승인 후 확정됩니다."
         : "예약이 완료되었습니다. 홈 화면에서 확인하세요.");
       setPurpose("");
+      setStartTime(""); setEndTime("");
       router.refresh();
     } catch (err: any) {
       setError(err.message ?? String(err));
@@ -122,6 +179,7 @@ export default function ReserveClient({ rooms, courses }: { rooms: Room[]; cours
             return (
               <li key={r.id}>
                 <button
+                  type="button"
                   onClick={() => setSelectedCode(r.code)}
                   className={`w-full text-left rounded-xl border p-3 transition ${
                     isSelected
@@ -169,19 +227,50 @@ export default function ReserveClient({ rooms, courses }: { rooms: Room[]; cours
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
               <span className="block text-xs font-medium text-slate-600 mb-1.5">시작</span>
-              <input
-                type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)}
+              <select
+                value={startTime}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setStartTime(v);
+                  if (endTime && (toMin(endTime) <= toMin(v) || overlapsAny(v, endTime, busyForRoom))) {
+                    setEndTime("");
+                  }
+                }}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-              />
+              >
+                <option value="">선택</option>
+                {HHMM_SLOTS.map((t) => {
+                  const dis = isStartDisabled(t);
+                  return (
+                    <option key={t} value={t} disabled={dis}>
+                      {t}{dis ? " (사용 중)" : ""}
+                    </option>
+                  );
+                })}
+              </select>
             </label>
             <label className="block">
               <span className="block text-xs font-medium text-slate-600 mb-1.5">종료</span>
-              <input
-                type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-              />
+              <select
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                disabled={!startTime}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-400"
+              >
+                <option value="">{startTime ? "선택" : "시작을 먼저 선택"}</option>
+                {HHMM_SLOTS.map((t) => {
+                  if (toMin(t) <= toMin(startTime || "00:00")) return null;
+                  const dis = isEndDisabled(t);
+                  return (
+                    <option key={t} value={t} disabled={dis}>
+                      {t}{dis ? " (사용 중)" : ""}
+                    </option>
+                  );
+                })}
+              </select>
             </label>
           </div>
+
           <label className="block">
             <span className="block text-xs font-medium text-slate-600 mb-1.5">용도</span>
             <input
@@ -207,6 +296,7 @@ export default function ReserveClient({ rooms, courses }: { rooms: Room[]; cours
           )}
 
           <button
+            type="button"
             onClick={submit} disabled={loading}
             className="w-full rounded-xl bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-medium py-3"
           >
