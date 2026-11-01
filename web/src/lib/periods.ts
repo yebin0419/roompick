@@ -1,5 +1,5 @@
-export const OPERATING_START_HOUR = 9;
-export const OPERATING_END_HOUR = 18;
+export const OPERATING_START_HOUR = 8;
+export const OPERATING_END_HOUR = 21;
 
 export const PERIODS: { period: number; start: string; end: string }[] = [
   { period: 1, start: "09:00", end: "10:00" },

@@ -11,10 +11,12 @@ type Room = {
 type Course = { room_code: string; weekday: number; start_period: number; end_period: number };
 type Reservation = { room_id: string; start_time: string; end_time: string };
 
-// 09:00 ~ 18:00, 30분 단위
+// 08:00 ~ 21:00, 30분 단위 — 운영 가능 시간
+const OPERATION_START_MIN = 8 * 60;
+const OPERATION_END_MIN = 21 * 60;
 const HHMM_SLOTS: string[] = (() => {
   const out: string[] = [];
-  for (let m = 9 * 60; m <= 18 * 60; m += 30) {
+  for (let m = OPERATION_START_MIN; m <= OPERATION_END_MIN; m += 30) {
     out.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
   }
   return out;
@@ -46,7 +48,7 @@ function fromMin(min: number): string {
 function defaultStart(): string {
   const now = toMin(currentHHMM());
   const first = toMin(HHMM_SLOTS[0]);
-  const lastStart = toMin(HHMM_SLOTS[HHMM_SLOTS.length - 2]); // 17:30
+  const lastStart = toMin(HHMM_SLOTS[HHMM_SLOTS.length - 2]); // 운영 종료 30분 전
   if (now <= first) return HHMM_SLOTS[0];
   if (now >= lastStart) return fromMin(lastStart);
   const rounded = Math.ceil(now / 30) * 30;
@@ -55,7 +57,7 @@ function defaultStart(): string {
 
 function defaultEnd(start: string): string {
   const target = toMin(start) + 60;
-  const last = toMin(HHMM_SLOTS[HHMM_SLOTS.length - 1]); // 18:00
+  const last = toMin(HHMM_SLOTS[HHMM_SLOTS.length - 1]); // 운영 종료 시각
   return fromMin(Math.min(target, last));
 }
 

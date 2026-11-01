@@ -13,10 +13,12 @@ type Room = {
 
 type Course = { room_code: string; weekday: number; start_period: number; end_period: number };
 
-// 09:00 ~ 18:00, 30분 단위
+// 08:00 ~ 21:00, 30분 단위 — 운영 가능 시간
+const OPERATION_START_MIN = 8 * 60;
+const OPERATION_END_MIN = 21 * 60;
 const HHMM_SLOTS: string[] = (() => {
   const out: string[] = [];
-  for (let m = 9 * 60; m <= 18 * 60; m += 30) {
+  for (let m = OPERATION_START_MIN; m <= OPERATION_END_MIN; m += 30) {
     out.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
   }
   return out;
@@ -102,7 +104,8 @@ export default function ReserveClient({ rooms, courses }: { rooms: Room[]; cours
 
   function isStartDisabled(t: string): boolean {
     if (!selected) return false;
-    if (t === "18:00") return true;
+    // 마지막 슬롯(21:00)은 시작으로 선택 불가 — 종료가 더 늦어야 하므로
+    if (toMin(t) >= OPERATION_END_MIN) return true;
     const next = fromMin(toMin(t) + 30);
     return overlapsAny(t, next, busyForRoom);
   }
@@ -116,6 +119,12 @@ export default function ReserveClient({ rooms, courses }: { rooms: Room[]; cours
     setError(null); setInfo(null);
     if (!selected) { setError("강의실을 선택하세요."); return; }
     if (!startTime || !endTime) { setError("시작/종료 시간을 선택하세요."); return; }
+    if (toMin(startTime) < OPERATION_START_MIN) {
+      setError("강의실 이용 가능 시간은 08:00부터입니다."); return;
+    }
+    if (toMin(endTime) > OPERATION_END_MIN) {
+      setError("강의실 이용 가능 시간은 21:00까지입니다."); return;
+    }
     if (toMin(startTime) >= toMin(endTime)) {
       setError("종료 시간이 시작 시간보다 늦어야 합니다."); return;
     }
