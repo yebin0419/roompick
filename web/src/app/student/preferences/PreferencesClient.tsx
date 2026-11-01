@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 import LogoutButton from "@/components/LogoutButton";
+import ReservationActions from "@/components/ReservationActions";
 
 type P = {
   name: string | null; email: string; student_id: string | null;
@@ -93,8 +94,8 @@ export default function PreferencesClient({
         </div>
         <ul className="mt-3 space-y-2">
           {reservations.map((r) => (
-            <li key={r.id} className="rounded-xl border border-slate-100 p-3 flex items-center justify-between">
-              <div>
+            <li key={r.id} className="rounded-xl border border-slate-100 p-3 flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-slate-900">
                   {r.room?.code ?? "-"}
                   {r.is_event && <span className="ml-1 text-xs text-brand-500">(행사)</span>}
@@ -104,7 +105,10 @@ export default function PreferencesClient({
                   {r.purpose && ` · ${r.purpose}`}
                 </p>
               </div>
-              <ReservationChip status={r.status} />
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <ReservationChip status={r.status} />
+                <ReservationActions id={r.id} status={r.status} />
+              </div>
             </li>
           ))}
           {reservations.length === 0 && (
