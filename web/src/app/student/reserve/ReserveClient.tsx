@@ -13,8 +13,8 @@ type Room = {
 
 type Course = { room_code: string; weekday: number; start_period: number; end_period: number };
 
-// 08:00 ~ 22:00, 30분 단위 — 운영 가능 시간 (1~13교시 커버)
-const OPERATION_START_MIN = 8 * 60;
+// 09:00 ~ 22:00, 30분 단위 — 운영 가능 시간 (1~13교시 커버)
+const OPERATION_START_MIN = 9 * 60;
 const OPERATION_END_MIN = 22 * 60;
 const HHMM_SLOTS: string[] = (() => {
   const out: string[] = [];
@@ -120,7 +120,7 @@ export default function ReserveClient({ rooms, courses }: { rooms: Room[]; cours
     if (!selected) { setError("강의실을 선택하세요."); return; }
     if (!startTime || !endTime) { setError("시작/종료 시간을 선택하세요."); return; }
     if (toMin(startTime) < OPERATION_START_MIN) {
-      setError("강의실 이용 가능 시간은 08:00부터입니다."); return;
+      setError("강의실 이용 가능 시간은 오전 09:00부터입니다."); return;
     }
     if (toMin(endTime) > OPERATION_END_MIN) {
       setError("강의실 이용 가능 시간은 22:00까지입니다."); return;
