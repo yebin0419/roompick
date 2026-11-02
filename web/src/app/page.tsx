@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 export default function Landing() {
@@ -5,7 +6,17 @@ export default function Landing() {
     <main className="min-h-screen flex flex-col">
       <section className="flex-1 flex items-center justify-center px-6 py-16">
         <div className="max-w-2xl w-full text-center">
-          <p className="text-brand-500 font-semibold tracking-wide text-sm">
+          <Link href="/" className="inline-flex items-center justify-center" aria-label="룸픽 홈으로">
+            <Image
+              src="/logo.png"
+              alt="룸픽 로고"
+              width={96}
+              height={96}
+              priority
+              className="w-24 h-24 rounded-2xl shadow-sm"
+            />
+          </Link>
+          <p className="mt-4 text-brand-500 font-semibold tracking-wide text-sm">
             RoomPick · 룸픽
           </p>
           <h1 className="mt-3 text-4xl sm:text-5xl font-bold text-slate-900">

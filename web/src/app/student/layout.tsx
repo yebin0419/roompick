@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -79,7 +80,17 @@ export default async function StudentLayout({ children }: { children: React.Reac
     <div className="min-h-screen flex flex-col">
       <header className="sticky top-0 z-10 bg-white border-b border-slate-200 pt-safe">
         <div className="max-w-5xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between">
-          <Link href="/student" className="font-bold text-brand-500 flex items-center h-full px-1">룸픽</Link>
+          <Link href="/student" className="font-bold text-brand-500 flex items-center h-full px-1 gap-2" aria-label="룸픽 홈으로">
+            <Image
+              src="/logo.png"
+              alt="룸픽 로고"
+              width={48}
+              height={48}
+              priority
+              className="w-9 h-9 rounded-lg"
+            />
+            <span>룸픽</span>
+          </Link>
           <div className="flex items-center gap-3 text-sm">
             <span className="text-slate-500 hidden sm:inline">
               {profile?.name ?? user.email}
